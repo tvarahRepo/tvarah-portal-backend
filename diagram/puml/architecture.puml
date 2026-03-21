@@ -1,0 +1,56 @@
+@startuml Tvarah Architecture
+
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+package "Client" {
+    [Company User / HR]
+}
+
+package "Infrastructure" {
+    [Keycloak\n(Auth Server)] #LightBlue
+    database "PostgreSQL" #LightGreen
+}
+
+package "Tvarah Backend JAVA Microservice" {
+    package "controller" {
+        [REST Controllers]
+    }
+    package "security" {
+        [SecurityConfig]
+        [JwtAuthConverter]
+        [SecurityUtils]
+    }
+    package "service" {
+        [Service Interfaces]
+        [Service Implementations]
+    }
+    package "repository" {
+        [JPA Repositories]
+    }
+    package "model" {
+        [Entities / Requests / Responses]
+    }
+    package "mapper" {
+        [MapStruct Mappers]
+    }
+    package "exception" {
+        [GlobalExceptionHandler]
+        [Custom Exceptions]
+    }
+    package "config" {
+        [DatabaseConfig]
+        [OpenApiConfig]
+    }
+}
+
+[Company User / HR] --> [REST Controllers] : HTTP + JWT
+[REST Controllers] --> [SecurityConfig] : secured by
+[SecurityConfig] --> [Keycloak\n(Auth Server)] : JWKS validation
+[REST Controllers] --> [Service Interfaces]
+[Service Interfaces] --> [Service Implementations]
+[Service Implementations] --> [JPA Repositories]
+[JPA Repositories] --> PostgreSQL
+[Service Implementations] --> [MapStruct Mappers]
+
+@enduml
