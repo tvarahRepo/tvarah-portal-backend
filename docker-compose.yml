@@ -2,78 +2,25 @@ version: '3.9'
 
 services:
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: tvarah-postgres
-    environment:
-      POSTGRES_DB: ${DB_NAME:-tvarah_db}
-      POSTGRES_USER: ${DB_USER:-tvarah_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-tvarah_pass}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-tvarah_user} -d ${DB_NAME:-tvarah_db}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - tvarah-network
-
-  keycloak:
-    image: quay.io/keycloak/keycloak:24.0
-    container_name: tvarah-keycloak
-    command: start-dev
-    environment:
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-tvarah_db}
-      KC_DB_USERNAME: ${DB_USER:-tvarah_user}
-      KC_DB_PASSWORD: ${DB_PASSWORD:-tvarah_pass}
-      KC_DB_SCHEMA: keycloak
-      KEYCLOAK_ADMIN: ${KC_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
-      KC_HTTP_PORT: 8180
-      KC_HOSTNAME_STRICT: "false"
-      KC_HTTP_ENABLED: "true"
-    ports:
-      - "8180:8180"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - tvarah-network
-
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: tvarah-app
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-tvarah_db}
+      DB_HOST: ${DB_HOST:-host.docker.internal}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-tvarah}
       DB_USER: ${DB_USER:-tvarah_user}
       DB_PASSWORD: ${DB_PASSWORD:-tvarah_pass}
-      KEYCLOAK_ISSUER_URI: http://keycloak:8180/realms/${KEYCLOAK_REALM:-tvarah}
-      KEYCLOAK_JWK_URI: http://keycloak:8180/realms/${KEYCLOAK_REALM:-tvarah}/protocol/openid-connect/certs
-      KEYCLOAK_TOKEN_URI: http://keycloak:8180/realms/${KEYCLOAK_REALM:-tvarah}/protocol/openid-connect/token
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://host.docker.internal:8080/realms/tvarah}
+      KEYCLOAK_JWK_URI: ${KEYCLOAK_JWK_URI:-http://host.docker.internal:8080/realms/tvarah/protocol/openid-connect/certs}
+      KEYCLOAK_TOKEN_URI: ${KEYCLOAK_TOKEN_URI:-http://host.docker.internal:8080/realms/tvarah/protocol/openid-connect/token}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tvarah}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-DatabaseServiceClient}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
     ports:
       - "8201:8201"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      keycloak:
-        condition: service_started
-    networks:
-      - tvarah-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-volumes:
-  postgres_data:
-
-networks:
-  tvarah-network:
-    driver: bridge
