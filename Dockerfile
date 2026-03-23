@@ -18,7 +18,7 @@ COPY --from=builder /app/target/*.jar app.jar
 RUN chown tvarah:tvarah app.jar
 USER tvarah
 
-EXPOSE 8080
+EXPOSE 8201
 
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \

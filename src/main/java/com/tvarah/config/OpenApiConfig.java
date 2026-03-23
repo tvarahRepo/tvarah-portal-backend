@@ -25,7 +25,7 @@ public class OpenApiConfig {
         public OpenAPI openAPI() {
                 return new OpenAPI()
                                 .info(new Info()
-                                                .title("Tvarah Internal API Documentation")
+                                                .title("Tvarah Internal Backend API Documentation")
                                                 .description("""
                                                                 ## What is Tvarah?
 
