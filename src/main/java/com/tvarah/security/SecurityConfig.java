@@ -21,6 +21,10 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
+            "/docs/**",
+            "/docs",
+            "/swagger-ui",
+            "/swagger-ui/oauth2-redirect.html",
             "/actuator/health",
             "/actuator/info"
     };

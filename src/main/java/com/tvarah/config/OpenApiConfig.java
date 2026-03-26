@@ -56,46 +56,26 @@ public class OpenApiConfig {
 
                                                                 ---
 
-                                                                ## Architecture
+                                                                ## API Layer
 
-                                                                Tvarah follows a **enterprise production-grade layered architecture** with strict layer boundaries:
+                                                                All APIs are organized into functional domains and follow a consistent RESTful contract.
+                                                                Every request is authenticated via Bearer JWT and authorized using role-based access control (RBAC) enforced at the endpoint level.
 
-                                                                ```
-                                                                              🟣 User  ◄──────────────────── ( External Client, FE, ML-Ops, Swagger UI)
-                                                                                  │
-                                                                                  │  HTTP + Bearer JWT
-                                                                                  ▼
-                                                                ┌─────── 🟣 Security Filter Chain ───────┐
-                                                                │   Bearer Token Authentication Filter  │
-                                                                │   JWT Signature + Expiry Validation   │◄── Keycloak
-                                                                │   JwtAuthConverter: Role Extraction   │
-                                                                │   (Realm Access + Resource Access)    │
-                                                                └──────────────────┬────────────────────┘
-                                                                                   │
-                                                                                   ▼
-                                                                ┌───── 🟣 Authorization Interceptor ────┐
-                                                                │       Claim presence validation       │
-                                                                │       Token expiry double-check       │
-                                                                │       User context population         │
-                                                                │       Request attribute injection     │
-                                                                └──────────────────┬────────────────────┘
-                                                                                   │
-                                                                                   ▼
-                                                                ┌────────── 🟣 Controller ──────────────┐
-                                                                │   REST endpoints + request validation │
-                                                                │   @PreAuthorize RBAC enforcement      │
-                                                                └──────────────────┬────────────────────┘
-                                                                                   │
-                                                                                   ▼
-                                                                ┌─────────── 🟣 Service ────────────────┐
-                                                                │   Business logic + orchestration      │
-                                                                └──────────────────┬────────────────────┘
-                                                                                   │
-                                                                                   ▼
-                                                                ┌────────── 🟣 Repository ──────────────┐
-                                                                │   Spring Data JPA → PostgreSQL        │
-                                                                │   Schema versioned via Liquibase      │◄── PostgreSQL
-                                                                └───────────────────────────────────────┘
+                                                                | Domain | Base Path | Description |
+                                                                |---|---|---|
+                                                                | **Client Management** | `/api/clients` | Onboard and manage hiring companies with industry, size, and recruiter assignment. |
+                                                                | **JD Management** | `/api/jds` | Create and manage structured Job Descriptions with skill arrays, experience bands, salary ranges, and round configuration. |
+                                                                | **Candidate Management** | `/api/candidates` | Maintain rich candidate profiles covering identity, work history, education, skills, documents, CTC preferences, and notice period. |
+
+                                                                **Standard Response Envelope**
+
+                                                                All endpoints return a consistent response structure:
+                                                                ```json
+                                                                {
+                                                                  "status": "success | error",
+                                                                  "message": "...",
+                                                                  "data": {}
+                                                                }
                                                                 ```
 
                                                                 ---
@@ -109,6 +89,7 @@ public class OpenApiConfig {
                                                 .contact(new Contact()
                                                                 .name("Tvarah Team")
                                                                 .email("uday.matta@tvarah.com")))
+                                .addTagsItem(new Tag().name("Auth Management"))
                                 .addTagsItem(new Tag().name("Candidate Management"))
                                 .addTagsItem(new Tag().name("Client Management"))
                                 .addTagsItem(new Tag().name("JD Management"))
