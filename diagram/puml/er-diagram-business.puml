@@ -1,31 +1,185 @@
 @startuml Tvarah Business Diagram
 
 top to bottom direction
-skinparam linetype polyline
-skinparam nodesep 100
-skinparam ranksep 120
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
 
 skinparam entity {
-    BackgroundColor #EEF4FB
-    BorderColor     #3A7BD5
-    FontSize        13
-    FontColor       #1A1A2E
+    BorderColor       #555555
+    FontSize          13
+    FontColor         #1A1A2E
     AttributeFontSize 12
 }
 
 skinparam arrow {
-    Color           #3A7BD5
-    FontSize        12
-    FontColor       #1A1A2E
-    FontStyle       bold
+    Color     #555555
+    FontSize  11
+    FontColor #333333
 }
 
-' ═══════════════════════════════════════════
-' ROW 0 — User · Client · Job Description
-' ═══════════════════════════════════════════
+' ─────────────────────────────────────────────────────────────
+' LEGEND
+' ─────────────────────────────────────────────────────────────
+
+legend right
+  |= Color      |= Domain            |
+  | <#D6EAF8>  | Core Business       |
+  | <#D5F5E3>  | Reference / Lookup  |
+  | <#FEF9E7>  | Status              |
+  | <#FDEBD0>  | Company             |
+  | <#F4ECF7>  | Candidate           |
+  | <#FDEDEC>  | Candidate Analytics |
+  | <#E8F8F5>  | Candidate Pipeline  |
+  |||
+  | ||--o{     | One to Many         |
+  | ||--||     | One to One          |
+endlegend
+
+' ─────────────────────────────────────────────────────────────
+' ROW 1 — Pure Lookup  (no FK dependencies)
+' ─────────────────────────────────────────────────────────────
 
 together {
-    entity "user" as user {
+    entity "industry" as industry #D5F5E3 {
+        id               : uuid
+        --
+        name             : string
+        sector           : string
+        naics_ref_number : string
+        aliases          : string
+    }
+
+    entity "department" as department #D5F5E3 {
+        id                : uuid
+        --
+        name              : string
+        code              : string
+        parent_department : string
+    }
+
+    entity "degree" as degree #D5F5E3 {
+        id       : uuid
+        --
+        name     : string
+        level    : string
+        category : string
+        code     : string
+    }
+
+    entity "specialization" as specialization #D5F5E3 {
+        id    : uuid
+        --
+        name  : string
+        alias : string
+    }
+
+    entity "institution" as institution #D5F5E3 {
+        id                    : uuid
+        --
+        name                  : string
+        type                  : string
+        parent_institution_id : uuid
+        alias                 : string
+        category              : string
+        tier                  : string
+        city                  : string
+        state                 : string
+        ranking               : string
+        is_verified           : boolean
+    }
+}
+
+' ─────────────────────────────────────────────────────────────
+' ROW 2 — Lookup tables with FK → Row 1
+' ─────────────────────────────────────────────────────────────
+
+together {
+    entity "company" as company #FDEBD0 {
+        id                  : uuid
+        --
+        name                : string
+        name_alias          : string
+        type                : string
+        industry            : string
+        headquarter_city    : string
+        headquarter_state   : string
+        headquarter_country : string
+        founded_year        : number
+        no_of_employees     : number
+        review_count        : number
+        avg_rating          : number
+        mca_verified        : boolean
+    }
+
+    entity "job_title" as job_title #D5F5E3 {
+        id              : uuid
+        --
+        name            : string
+        department      : string
+        seniority_level : string
+    }
+
+    entity "designation" as designation #D5F5E3 {
+        id         : uuid
+        --
+        name       : string
+        level      : string
+        category   : string
+        department : string
+        alias      : string
+        is_active  : boolean
+    }
+
+    entity "skill" as skill #D5F5E3 {
+        id           : uuid
+        --
+        name         : string
+        category     : string
+        tier         : string
+        department   : string
+        is_technical : boolean
+        is_verified  : boolean
+    }
+
+    entity "specialization_degree_map" as specialization_degree_map #D5F5E3 {
+        id                : uuid
+        --
+        specialization_id : uuid
+        degree_id         : uuid
+    }
+}
+
+' ─────────────────────────────────────────────────────────────
+' ROW 3 — Status tables for Core Business
+' ─────────────────────────────────────────────────────────────
+
+together {
+    entity "user_status" as user_status #FEF9E7 {
+        name        : string  <<PK>>
+        --
+        description : string
+    }
+
+    entity "client_status" as client_status #FEF9E7 {
+        name        : string  <<PK>>
+        --
+        description : string
+    }
+
+    entity "job_status" as job_status #FEF9E7 {
+        name        : string  <<PK>>
+        --
+        description : string
+    }
+}
+
+' ─────────────────────────────────────────────────────────────
+' ROW 4 — Core Business  (FK → Rows 1, 2, 3)
+' ─────────────────────────────────────────────────────────────
+
+together {
+    entity "user" as user #D6EAF8 {
         id               : uuid
         --
         first_name       : string
@@ -33,24 +187,24 @@ together {
         email            : string
         keycloak_user_id : uuid
         role             : string
-        status           : uuid
+        status           : string
         created_on       : timestamp
         updated_on       : timestamp
     }
 
-    entity "client" as client {
+    entity "client" as client #D6EAF8 {
         id           : uuid
         --
         name         : string
         industry     : string
         size         : number
         recruiter_id : uuid
-        status       : uuid
+        status       : string
         created_on   : timestamp
         updated_on   : timestamp
     }
 
-    entity "job_description" as job_description {
+    entity "job_description" as job_description #D6EAF8 {
         id                       : uuid
         --
         client_id                : uuid
@@ -71,9 +225,8 @@ together {
         total_positions_selected : number
         total_rounds             : number
         ..
-        status                   : uuid
+        status                   : string
         closed_on                : timestamp
-        ..
         jd_score                 : number
         non_negotiable_rules     : string
         ..
@@ -82,143 +235,47 @@ together {
     }
 }
 
-' ═══════════════════════════════════════════
-' ROW 1 — Core Reference Tables
-' ═══════════════════════════════════════════
+' ─────────────────────────────────────────────────────────────
+' ROW 5 — Status tables for Candidate Domain
+' ─────────────────────────────────────────────────────────────
 
 together {
-    entity "industry" as industry {
-        id               : uuid
+    entity "candidate_status" as candidate_status #FEF9E7 {
+        name        : string  <<PK>>
         --
-        name             : string
-        sector           : string
-        naics_ref_number : string
-        aliases          : string
-    }
-
-    entity "status" as status {
-        id          : uuid
-        --
-        name        : string
-        type        : string
         description : string
     }
 
-    entity "department" as department {
-        id                : uuid
+    entity "candidate_job_status" as candidate_job_status #FEF9E7 {
+        name        : string  <<PK>>
         --
-        name              : string
-        code              : string
-        parent_department : string
+        description : string
+    }
+
+    entity "candidate_job_evaluation_status" as candidate_job_evaluation_status #FEF9E7 {
+        name        : string  <<PK>>
+        --
+        description : string
+    }
+
+    entity "candidate_job_interview_status" as candidate_job_interview_status #FEF9E7 {
+        name        : string  <<PK>>
+        --
+        description : string
+    }
+
+    entity "skill_validation_status" as skill_validation_status #FEF9E7 {
+        name        : string  <<PK>>
+        --
+        description : string
     }
 }
 
-' ═══════════════════════════════════════════
-' ROW 2 — Role / Work Reference Tables
-' ═══════════════════════════════════════════
+' ─────────────────────────────────────────────────────────────
+' ROW 6 — Candidate Core  (FK → Rows 1, 2, 4, 5)
+' ─────────────────────────────────────────────────────────────
 
-together {
-    entity "job_title" as job_title {
-        id              : uuid
-        --
-        name            : string
-        department      : string
-        seniority_level : string
-    }
-
-    entity "designation" as designation {
-        id         : uuid
-        --
-        name       : string
-        level      : string
-        category   : string
-        department : string
-        alias      : string
-        is_active  : boolean
-    }
-
-    entity "skill" as skill {
-        id           : uuid
-        --
-        name         : string
-        category     : string
-        tier         : string
-        department   : string
-        is_technical : boolean
-        is_verified  : boolean
-    }
-}
-
-' ═══════════════════════════════════════════
-' ROW 3 — Education Reference Tables
-' ═══════════════════════════════════════════
-
-together {
-    entity "institution" as institution {
-        id                    : uuid
-        --
-        name                  : string
-        type                  : string
-        parent_institution_id : uuid
-        alias                 : string
-        category              : string
-        tier                  : string
-        city                  : string
-        state                 : string
-        ranking               : string
-        is_verified           : boolean
-    }
-
-    entity "degree" as degree {
-        id       : uuid
-        --
-        name     : string
-        level    : string
-        category : string
-        code     : string
-    }
-
-    entity "specialization" as specialization {
-        id    : uuid
-        --
-        name  : string
-        alias : string
-    }
-
-    entity "specialization_degree_map" as specialization_degree_map {
-        id                : uuid
-        --
-        specialization_id : uuid
-        degree_id         : uuid
-    }
-}
-
-' ═══════════════════════════════════════════
-' ROW 4 — Company
-' ═══════════════════════════════════════════
-
-entity "company" as company {
-    id                  : uuid
-    --
-    name                : string
-    name_alias          : string
-    type                : string
-    industry            : string
-    headquarter_city    : string
-    headquarter_state   : string
-    headquarter_country : string
-    founded_year        : number
-    no_of_employees     : number
-    review_count        : number
-    avg_rating          : number
-    mca_verified        : boolean
-}
-
-' ═══════════════════════════════════════════
-' ROW 5 — Candidate (Core)
-' ═══════════════════════════════════════════
-
-entity "candidate" as candidate {
+entity "candidate" as candidate #F4ECF7 {
     id                  : uuid
     --
     first_name          : string
@@ -229,6 +286,7 @@ entity "candidate" as candidate {
     country             : string
     phone_number        : string
     whatsapp_number     : string
+    status              : string
     total_experience    : number
     relative_experience : number
     designation         : string
@@ -239,12 +297,12 @@ entity "candidate" as candidate {
     updated_by          : string
 }
 
-' ═══════════════════════════════════════════
-' ROW 6 — Candidate 1:1 Extensions
-' ═══════════════════════════════════════════
+' ─────────────────────────────────────────────────────────────
+' ROW 7 — Candidate 1:1 Extensions  (FK → Rows 2, 6)
+' ─────────────────────────────────────────────────────────────
 
 together {
-    entity "candidate_preference" as candidate_preference {
+    entity "candidate_preference" as candidate_preference #F4ECF7 {
         id                         : uuid
         --
         candidate_id               : uuid
@@ -264,7 +322,7 @@ together {
         updated_by                 : string
     }
 
-    entity "candidate_notice_period" as candidate_notice_period {
+    entity "candidate_notice_period" as candidate_notice_period #F4ECF7 {
         id                     : uuid
         --
         candidate_id           : uuid
@@ -281,12 +339,12 @@ together {
     }
 }
 
-' ═══════════════════════════════════════════
-' ROW 7 — Candidate Scoring & Summary
-' ═══════════════════════════════════════════
+' ─────────────────────────────────────────────────────────────
+' ROW 8 — Candidate Analytics  (FK → Row 6)
+' ─────────────────────────────────────────────────────────────
 
 together {
-    entity "candidate_score" as candidate_score {
+    entity "candidate_score" as candidate_score #FDEDEC {
         id                                    : uuid
         --
         candidate_id                          : uuid
@@ -320,7 +378,7 @@ together {
         updated_on                            : timestamp
     }
 
-    entity "candidate_resume_summary" as candidate_resume_summary {
+    entity "candidate_resume_summary" as candidate_resume_summary #FDEDEC {
         id                        : uuid
         --
         candidate_id              : uuid
@@ -339,12 +397,12 @@ together {
     }
 }
 
-' ═══════════════════════════════════════════
-' ROW 8 — Candidate History
-' ═══════════════════════════════════════════
+' ─────────────────────────────────────────────────────────────
+' ROW 9 — Candidate History  (FK → Rows 1, 2, 6)
+' ─────────────────────────────────────────────────────────────
 
 together {
-    entity "candidate_experience" as candidate_experience {
+    entity "candidate_experience" as candidate_experience #F4ECF7 {
         id                 : uuid
         --
         candidate_id       : uuid
@@ -358,7 +416,7 @@ together {
         experience_summary : string
     }
 
-    entity "candidate_education" as candidate_education {
+    entity "candidate_education" as candidate_education #F4ECF7 {
         id             : uuid
         --
         candidate_id   : uuid
@@ -371,68 +429,12 @@ together {
     }
 }
 
-' ═══════════════════════════════════════════
-' ROW 8b — Candidate Job & Evaluation
-' ═══════════════════════════════════════════
+' ─────────────────────────────────────────────────────────────
+' ROW 10 — Candidate Misc  (FK → Rows 2, 5, 6)
+' ─────────────────────────────────────────────────────────────
 
 together {
-    entity "candidate_job" as candidate_job {
-        id           : uuid
-        --
-        candidate_id : uuid
-        job_id       : uuid
-        is_active    : boolean
-        status       : uuid
-        created_on   : timestamp
-        updated_on   : timestamp
-        created_by   : string
-        updated_by   : string
-    }
-
-    entity "candidate_job_evaluation" as candidate_job_evaluation {
-        id                      : uuid
-        --
-        candidate_job_id        : uuid
-        jd_overall_match_score  : number
-        skill_match_score       : number
-        domain_match_score      : number
-        jd_exp_relevance_score  : number
-        status                  : uuid
-    }
-}
-
-entity "candidate_job_interview" as candidate_job_interview {
-    id                  : uuid
-    --
-    candidate_job_id    : uuid
-    round_number        : number
-    ..
-    interviewer_name    : string
-    interviewer_email   : string
-    interviewer_type    : string
-    ..
-    scheduled_on        : timestamp
-    mode                : string
-    status              : uuid
-    ..
-    questions           : string
-    focus_areas         : string
-    ..
-    feedback            : string
-    score               : number
-    ..
-    created_on          : timestamp
-    updated_on          : timestamp
-    created_by          : uuid
-    updated_by          : uuid
-}
-
-' ═══════════════════════════════════════════
-' ROW 9 — Candidate Misc
-' ═══════════════════════════════════════════
-
-together {
-    entity "candidate_skill" as candidate_skill {
+    entity "candidate_skill" as candidate_skill #F4ECF7 {
         id                : uuid
         --
         candidate_id      : uuid
@@ -440,10 +442,10 @@ together {
         proficiency_level : string
         years_experience  : number
         last_used_year    : number
-        validation_status : uuid
+        validation_status : string
     }
 
-    entity "candidate_document" as candidate_document {
+    entity "candidate_document" as candidate_document #F4ECF7 {
         id           : uuid
         --
         candidate_id : uuid
@@ -452,7 +454,7 @@ together {
         uploaded_on  : timestamp
     }
 
-    entity "candidate_social_media" as candidate_social_media {
+    entity "candidate_social_media" as candidate_social_media #F4ECF7 {
         id           : uuid
         --
         candidate_id : uuid
@@ -461,78 +463,143 @@ together {
     }
 }
 
-' ═══════════════════════════════════════════
-' Relationships
-' ═══════════════════════════════════════════
+' ─────────────────────────────────────────────────────────────
+' ROW 11 — Candidate Job  (FK → Rows 4, 5, 6)
+' ─────────────────────────────────────────────────────────────
 
-' User & Client
-status   ||--o{ user             : "assigned_status"
-industry ||--o{ client           : "categorised_as"
-user     ||--o{ client           : "managed by"
-status   ||--o{ client           : "assigned_status"
+entity "candidate_job" as candidate_job #E8F8F5 {
+    id           : uuid
+    --
+    candidate_id : uuid
+    job_id       : uuid
+    is_active    : boolean
+    status       : string
+    created_on   : timestamp
+    updated_on   : timestamp
+    created_by   : string
+    updated_by   : string
+}
 
-' Job Description
-client    ||--o{ job_description  : "raised_by"
-job_title ||--o{ job_description  : "titled_as"
-status    ||--o{ job_description  : "assigned_status"
+' ─────────────────────────────────────────────────────────────
+' ROW 12 — Evaluation · Interview  (FK → Rows 5, 11)
+' ─────────────────────────────────────────────────────────────
 
-' Reference
-institution    ||--o{ institution               : "has_branch"
-department     ||--o{ department                : "has_sub_department"
-specialization ||--o{ specialization_degree_map : "mapped_to"
-degree         ||--o{ specialization_degree_map : "mapped_to"
+together {
+    entity "candidate_job_evaluation" as candidate_job_evaluation #E8F8F5 {
+        id                      : uuid
+        --
+        candidate_job_id        : uuid
+        jd_overall_match_score  : number
+        skill_match_score       : number
+        domain_match_score      : number
+        jd_exp_relevance_score  : number
+        status                  : string
+    }
 
-' Company & Roles
-industry   ||--o{ company      : "categorised_as"
-department ||--o{ job_title    : "owns"
-department ||--o{ designation  : "owns"
-department ||--o{ skill        : "owns"
+    entity "candidate_job_interview" as candidate_job_interview #E8F8F5 {
+        id                : uuid
+        --
+        candidate_job_id  : uuid
+        round_number      : number
+        ..
+        interviewer_name  : string
+        interviewer_email : string
+        interviewer_type  : string
+        ..
+        scheduled_on      : timestamp
+        mode              : string
+        status            : string
+        ..
+        questions         : string
+        focus_areas       : string
+        ..
+        feedback          : string
+        score             : number
+        ..
+        created_on        : timestamp
+        updated_on        : timestamp
+        created_by        : uuid
+        updated_by        : uuid
+    }
+}
 
-' Candidate core
-company     ||--o{ candidate   : "currently_at"
-job_title   ||--o{ candidate   : "applies_to"
-status      ||--o{ candidate   : "tracked_by"
-designation ||--o{ candidate   : "designated_as"
+' ─────────────────────────────────────────────────────────────
+' RELATIONSHIPS
+' ─────────────────────────────────────────────────────────────
 
-' Candidate 1:1
-candidate ||--|| candidate_preference     : "has_preference"
-candidate ||--|| candidate_notice_period  : "has_notice_period"
-candidate ||--|| candidate_score          : "scored_as"
-candidate ||--|| candidate_resume_summary : "summarised_as"
+' Row 1 self-references
+institution    ||--o{ institution               : "branch of"
+department     ||--o{ department                : "sub-dept of"
+specialization ||--o{ specialization_degree_map : "specialization"
+degree         ||--o{ specialization_degree_map : "degree"
 
-' Candidate preference refs
-job_title ||--o{ candidate_preference    : "prefers_job_title"
-company   ||--o{ candidate_notice_period : "serving_notice_at"
+' Row 1 → Row 2
+industry   ||--o{ company     : "industry"
+department ||--o{ job_title   : "department"
+department ||--o{ designation : "department"
+department ||--o{ skill       : "department"
 
-' Candidate history
-candidate   ||--o{ candidate_experience  : "has_experience"
-company     ||--o{ candidate_experience  : "worked_at"
-designation ||--o{ candidate_experience  : "held"
-industry    ||--o{ candidate_experience  : "worked_in"
-job_title   ||--o{ candidate_experience  : "titled_as"
+' Row 3 → Row 4  (status → entity)
+user_status   ||--o{ user            : "status"
+client_status ||--o{ client          : "status"
+job_status    ||--o{ job_description : "status"
 
-candidate      ||--o{ candidate_education  : "has_education"
-institution    ||--o{ candidate_education  : "studied_at"
-degree         ||--o{ candidate_education  : "holds_degree"
-specialization ||--o{ candidate_education  : "specialised_in"
+' Row 2/4 → Row 4
+industry  ||--o{ client          : "industry"
+user      ||--o{ client          : "recruiter"
+client    ||--o{ job_description : "client"
+job_title ||--o{ job_description : "title"
 
-' Candidate job interview
-candidate_job ||--o{ candidate_job_interview : "has_interview_round"
-status        ||--o{ candidate_job_interview : "assigned_status"
+' Row 5 → Row 6  (status → candidate)
+candidate_status ||--o{ candidate : "status"
 
-' Candidate job & evaluation
-candidate       ||--o{ candidate_job            : "applied_to"
-job_description ||--o{ candidate_job            : "has_candidate"
-status          ||--o{ candidate_job            : "assigned_status"
+' Row 2 → Row 6
+company     ||--o{ candidate : "current company"
+job_title   ||--o{ candidate : "current title"
+designation ||--o{ candidate : "designation"
 
-candidate_job ||--|| candidate_job_evaluation : "evaluated_as"
-status        ||--o{ candidate_job_evaluation  : "assigned_status"
+' Row 6 → Row 7  (candidate → extensions)
+candidate ||--|| candidate_preference    : "preferences"
+candidate ||--|| candidate_notice_period : "notice period"
 
-' Candidate misc
-candidate ||--o{ candidate_skill        : "has"
-skill     ||--o{ candidate_skill        : "typed_as"
-status    ||--o{ candidate_skill        : "validated_as"
-candidate ||--o{ candidate_document     : "has_document"
-candidate ||--o{ candidate_social_media : "has_social_media"
+' Row 2 → Row 7
+job_title ||--o{ candidate_preference    : "preferred title"
+company   ||--o{ candidate_notice_period : "notice at"
+
+' Row 6 → Row 8  (candidate → analytics)
+candidate ||--|| candidate_score          : "score"
+candidate ||--|| candidate_resume_summary : "summary"
+
+' Row 6 → Row 9  (candidate → history)
+candidate   ||--o{ candidate_experience : "experience"
+candidate   ||--o{ candidate_education  : "education"
+
+' Row 1/2 → Row 9
+company     ||--o{ candidate_experience : "company"
+designation ||--o{ candidate_experience : "designation"
+industry    ||--o{ candidate_experience : "industry"
+job_title   ||--o{ candidate_experience : "title"
+institution ||--o{ candidate_education  : "institution"
+degree      ||--o{ candidate_education  : "degree"
+specialization ||--o{ candidate_education : "specialization"
+
+' Row 2/5/6 → Row 10  (candidate → misc)
+candidate               ||--o{ candidate_skill        : "skills"
+skill                   ||--o{ candidate_skill        : "skill ref"
+skill_validation_status ||--o{ candidate_skill        : "validation"
+candidate               ||--o{ candidate_document     : "documents"
+candidate               ||--o{ candidate_social_media : "social links"
+
+' Row 4/5/6 → Row 11  (candidate + job → candidate_job)
+candidate            ||--o{ candidate_job : "application"
+job_description      ||--o{ candidate_job : "job"
+candidate_job_status ||--o{ candidate_job : "status"
+
+' Row 5/11 → Row 12  (candidate_job → evaluation & interview)
+candidate_job                   ||--|| candidate_job_evaluation : "evaluation"
+candidate_job_evaluation_status ||--o{ candidate_job_evaluation : "status"
+
+candidate_job                  ||--o{ candidate_job_interview : "interview"
+candidate_job_interview_status ||--o{ candidate_job_interview : "status"
 
 @enduml
