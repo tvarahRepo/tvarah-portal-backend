@@ -9,18 +9,6 @@ services:
     container_name: tvarah-app
     env_file:
       - ../.env
-    environment:
-      DB_HOST: ${DB_HOST:-host.docker.internal}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_NAME: ${DB_NAME:-tvarah}
-      DB_USER: ${DB_USER:-tvarah_user}
-      DB_PASSWORD: ${DB_PASSWORD:-tvarah_pass}
-      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-https://portal.tvarah.com/auth/realms/tvarah}
-      KEYCLOAK_JWK_URI: ${KEYCLOAK_JWK_URI:-https://portal.tvarah.com/auth/realms/tvarah/protocol/openid-connect/certs}
-      KEYCLOAK_TOKEN_URI: ${KEYCLOAK_TOKEN_URI:-https://portal.tvarah.com/auth/realms/tvarah/protocol/openid-connect/token}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tvarah}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-DatabaseServiceClient}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
     ports:
       - "8201:8201"
     extra_hosts:
