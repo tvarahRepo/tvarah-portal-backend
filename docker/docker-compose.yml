@@ -7,6 +7,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: tvarah-app
+    env_file:
+      - ../.env
     environment:
       DB_HOST: ${DB_HOST:-host.docker.internal}
       DB_PORT: ${DB_PORT:-5432}
