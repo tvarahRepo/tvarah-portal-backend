@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset tvarah:026-1 labels:v0.0.1 context:ddl
+--changeset tvarah:025-1 labels:v0.0.1 context:ddl
 --comment: Create candidate_resume_summary table (1:1 with candidate)
 CREATE TABLE candidate_resume_summary (
     id                       UUID        NOT NULL DEFAULT gen_random_uuid(),

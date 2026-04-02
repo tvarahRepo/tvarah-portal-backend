@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset tvarah:031-1 labels:v0.0.1 context:ddl
+--changeset tvarah:030-1 labels:v0.0.1 context:ddl
 --comment: Create candidate_social_media table
 CREATE TABLE candidate_social_media (
     id           UUID        NOT NULL DEFAULT gen_random_uuid(),

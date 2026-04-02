@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset tvarah:021-1 labels:v0.0.1 context:ddl
+--changeset tvarah:020-1 labels:v0.0.1 context:ddl
 --comment: Create job_description table
 CREATE TABLE job_description (
     id                       UUID           NOT NULL DEFAULT gen_random_uuid(),
@@ -23,6 +23,8 @@ CREATE TABLE job_description (
     non_negotiable_rules     JSONB,
     created_on               TIMESTAMPTZ    NOT NULL DEFAULT now(),
     updated_on               TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    created_by               VARCHAR(200),
+    updated_by               VARCHAR(200),
     CONSTRAINT pk_job_description PRIMARY KEY (id),
     CONSTRAINT fk_jd_client_id    FOREIGN KEY (client_id)    REFERENCES client (id),
     CONSTRAINT fk_jd_job_title_id FOREIGN KEY (job_title_id) REFERENCES job_title (id),

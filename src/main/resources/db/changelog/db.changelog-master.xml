@@ -22,43 +22,44 @@
 
         Status tables (DDL + seed data)
         011  user_status
-        012  client_status
-        013  job_status
-        014  candidate_status
-        015  candidate_job_status
-        016  candidate_job_evaluation_status
-        017  candidate_job_interview_status
-        018  skill_validation_status
+        012  job_status
+        013  candidate_status
+        014  candidate_job_status
+        015  candidate_job_evaluation_status
+        016  candidate_job_interview_status
+        017  skill_validation_status
 
         Core Business
-        019  user
-        020  client
-        021  job_description
+        018  user
+        019  client
+        020  job_description
 
         Candidate Core
-        022  candidate
+        021  candidate
 
         Candidate Extensions (1:1)
-        023  candidate_preference
-        024  candidate_notice_period
+        022  candidate_preference
+        023  candidate_notice_period
 
         Candidate Analytics (1:1)
-        025  candidate_score
-        026  candidate_resume_summary
+        024  candidate_score
+        025  candidate_resume_summary
 
         Candidate History (1:N)
-        027  candidate_experience
-        028  candidate_education
+        026  candidate_experience
+        027  candidate_education
 
         Candidate Misc (1:N)
-        029  candidate_skill
-        030  candidate_document
-        031  candidate_social_media
+        028  candidate_skill
+        029  candidate_document
+        030  candidate_social_media
 
         Candidate Pipeline
-        032  candidate_job
-        033  candidate_job_evaluation
-        034  candidate_job_interview
+        031  candidate_job
+        032  candidate_job_evaluation
+        033  candidate_job_interview
+        034  candidate_score_category_wise
+        035  user_target
     -->
 
     <include file="db/changelog/changes/001-industry.sql"/>
@@ -72,28 +73,29 @@
     <include file="db/changelog/changes/009-skill.sql"/>
     <include file="db/changelog/changes/010-specialization-degree-map.sql"/>
     <include file="db/changelog/changes/011-user-status.sql"/>
-    <include file="db/changelog/changes/012-client-status.sql"/>
-    <include file="db/changelog/changes/013-job-status.sql"/>
-    <include file="db/changelog/changes/014-candidate-status.sql"/>
-    <include file="db/changelog/changes/015-candidate-job-status.sql"/>
-    <include file="db/changelog/changes/016-candidate-job-evaluation-status.sql"/>
-    <include file="db/changelog/changes/017-candidate-job-interview-status.sql"/>
-    <include file="db/changelog/changes/018-skill-validation-status.sql"/>
-    <include file="db/changelog/changes/019-user.sql"/>
-    <include file="db/changelog/changes/020-client.sql"/>
-    <include file="db/changelog/changes/021-job-description.sql"/>
-    <include file="db/changelog/changes/022-candidate.sql"/>
-    <include file="db/changelog/changes/023-candidate-preference.sql"/>
-    <include file="db/changelog/changes/024-candidate-notice-period.sql"/>
-    <include file="db/changelog/changes/025-candidate-score.sql"/>
-    <include file="db/changelog/changes/026-candidate-resume-summary.sql"/>
-    <include file="db/changelog/changes/027-candidate-experience.sql"/>
-    <include file="db/changelog/changes/028-candidate-education.sql"/>
-    <include file="db/changelog/changes/029-candidate-skill.sql"/>
-    <include file="db/changelog/changes/030-candidate-document.sql"/>
-    <include file="db/changelog/changes/031-candidate-social-media.sql"/>
-    <include file="db/changelog/changes/032-candidate-job.sql"/>
-    <include file="db/changelog/changes/033-candidate-job-evaluation.sql"/>
-    <include file="db/changelog/changes/034-candidate-job-interview.sql"/>
+    <include file="db/changelog/changes/012-job-status.sql"/>
+    <include file="db/changelog/changes/013-candidate-status.sql"/>
+    <include file="db/changelog/changes/014-candidate-job-status.sql"/>
+    <include file="db/changelog/changes/015-candidate-job-evaluation-status.sql"/>
+    <include file="db/changelog/changes/016-candidate-job-interview-status.sql"/>
+    <include file="db/changelog/changes/017-skill-validation-status.sql"/>
+    <include file="db/changelog/changes/018-user.sql"/>
+    <include file="db/changelog/changes/019-client.sql"/>
+    <include file="db/changelog/changes/020-job-description.sql"/>
+    <include file="db/changelog/changes/021-candidate.sql"/>
+    <include file="db/changelog/changes/022-candidate-preference.sql"/>
+    <include file="db/changelog/changes/023-candidate-notice-period.sql"/>
+    <include file="db/changelog/changes/024-candidate-score.sql"/>
+    <include file="db/changelog/changes/025-candidate-resume-summary.sql"/>
+    <include file="db/changelog/changes/026-candidate-experience.sql"/>
+    <include file="db/changelog/changes/027-candidate-education.sql"/>
+    <include file="db/changelog/changes/028-candidate-skill.sql"/>
+    <include file="db/changelog/changes/029-candidate-document.sql"/>
+    <include file="db/changelog/changes/030-candidate-social-media.sql"/>
+    <include file="db/changelog/changes/031-candidate-job.sql"/>
+    <include file="db/changelog/changes/032-candidate-job-evaluation.sql"/>
+    <include file="db/changelog/changes/033-candidate-job-interview.sql"/>
+    <include file="db/changelog/changes/034-candidate-score-category-wise.sql"/>
+    <include file="db/changelog/changes/035-user-target.sql"/>
 
 </databaseChangeLog>

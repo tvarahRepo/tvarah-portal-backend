@@ -161,12 +161,6 @@ together {
         description : string
     }
 
-    entity "client_status" as client_status #FEF9E7 {
-        name        : string  <<PK>>
-        --
-        description : string
-    }
-
     entity "job_status" as job_status #FEF9E7 {
         name        : string  <<PK>>
         --
@@ -185,10 +179,20 @@ together {
         first_name       : string
         last_name        : string
         email            : string
-        keycloak_user_id : uuid
         role             : string
         status           : string
         created_on       : timestamp
+        updated_on       : timestamp
+    }
+
+    entity "user_target" as user_target #D6EAF8 {
+        id               : uuid
+        --
+        user_id          : uuid
+        positions_closed : number
+        sourcing         : number
+        panel_interview  : number
+        client_interview : number
         updated_on       : timestamp
     }
 
@@ -199,7 +203,6 @@ together {
         industry     : string
         size         : number
         recruiter_id : uuid
-        status       : string
         created_on   : timestamp
         updated_on   : timestamp
     }
@@ -232,6 +235,8 @@ together {
         ..
         created_on               : timestamp
         updated_on               : timestamp
+        created_by               : string
+        updated_by               : string
     }
 }
 
@@ -276,25 +281,28 @@ together {
 ' ─────────────────────────────────────────────────────────────
 
 entity "candidate" as candidate #F4ECF7 {
-    id                  : uuid
+    id                   : uuid
     --
-    first_name          : string
-    last_name           : string
-    email               : string
-    address             : string
-    city                : string
-    country             : string
-    phone_number        : string
-    whatsapp_number     : string
-    status              : string
-    total_experience    : number
-    relative_experience : number
-    designation         : string
-    company             : string
-    created_on          : timestamp
-    updated_on          : timestamp
-    created_by          : string
-    updated_by          : string
+    code                 : serial
+    first_name           : string
+    last_name            : string
+    email                : string
+    address              : string
+    city                 : string
+    country              : string
+    phone_number         : string
+    whatsapp_number      : string
+    status               : string
+    job_title_id         : uuid
+    designation_id       : uuid
+    current_company_id   : uuid
+    total_experience     : number
+    relevant_experience  : number
+    resume_url           : string
+    created_on           : timestamp
+    updated_on           : timestamp
+    created_by           : string
+    updated_by           : string
 }
 
 ' ─────────────────────────────────────────────────────────────
@@ -326,7 +334,7 @@ together {
         id                     : uuid
         --
         candidate_id           : uuid
-        company                : string
+        company_id             : uuid
         is_in_notice_period    : boolean
         notice_period_duration : number
         resignation_date       : timestamp
@@ -345,37 +353,29 @@ together {
 
 together {
     entity "candidate_score" as candidate_score #FDEDEC {
-        id                                    : uuid
+        id                : uuid
         --
-        candidate_id                          : uuid
-        ..
-        overall_score                         : number
-        overall_strength                      : string
-        ..
-        education_quality_score               : number
-        institution_credibility_score         : number
-        academic_alignment_score              : number
-        timeline_integrity_score              : number
-        ..
-        experience_quality_score              : number
-        company_quality_signal_score          : number
-        role_progression_score                : number
-        experience_sufficiency_score          : number
-        ..
-        skill_depth_score                     : number
-        depth_of_usage_score                  : number
-        breadth_tooling_clarity_score         : number
-        ..
-        domain_depth_score                    : number
-        domain_consistency_score              : number
-        domain_impact_evidence_score          : number
-        domain_language_signal_strength_score : number
-        ..
-        feedback_comments                     : string
-        drop_flag                             : boolean
-        fraud_risk                            : string
-        fraud_status                          : boolean
-        updated_on                            : timestamp
+        candidate_id      : uuid
+        score             : number
+        max_score         : number
+        strength          : string
+        feedback_comments : string
+        drop_flag         : boolean
+        drop_flag_message : string
+        fraud_risk        : string
+        fraud_status      : boolean
+        qualitative_data  : jsonb
+        created_on        : timestamp
+        updated_on        : timestamp
+    }
+
+    entity "candidate_score_category_wise" as candidate_score_category_wise #FDEDEC {
+        id                 : uuid
+        --
+        candidate_score_id : uuid
+        label              : string
+        score              : number
+        max_score          : number
     }
 
     entity "candidate_resume_summary" as candidate_resume_summary #FDEDEC {
@@ -417,15 +417,15 @@ together {
     }
 
     entity "candidate_education" as candidate_education #F4ECF7 {
-        id             : uuid
+        id                : uuid
         --
-        candidate_id   : uuid
-        institution_id : uuid
-        degree         : string
-        specialization : string
-        start_year     : number
-        end_year       : number
-        is_highest     : boolean
+        candidate_id      : uuid
+        institution_id    : uuid
+        degree_id         : uuid
+        specialization_id : uuid
+        start_year        : number
+        end_year          : number
+        is_highest        : boolean
     }
 }
 
@@ -438,7 +438,7 @@ together {
         id                : uuid
         --
         candidate_id      : uuid
-        skill             : string
+        skill_id          : uuid
         proficiency_level : string
         years_experience  : number
         last_used_year    : number
@@ -540,9 +540,9 @@ department ||--o{ designation : "department"
 department ||--o{ skill       : "department"
 
 ' Row 3 → Row 4  (status → entity)
-user_status   ||--o{ user            : "status"
-client_status ||--o{ client          : "status"
-job_status    ||--o{ job_description : "status"
+user_status ||--o{ user            : "status"
+user        ||--o{ user_target     : "user_id"
+job_status  ||--o{ job_description : "status"
 
 ' Row 2/4 → Row 4
 industry  ||--o{ client          : "industry"
@@ -554,9 +554,9 @@ job_title ||--o{ job_description : "title"
 candidate_status ||--o{ candidate : "status"
 
 ' Row 2 → Row 6
-company     ||--o{ candidate : "current company"
-job_title   ||--o{ candidate : "current title"
-designation ||--o{ candidate : "designation"
+company     ||--o{ candidate : "current_company_id"
+job_title   ||--o{ candidate : "job_title_id"
+designation ||--o{ candidate : "designation_id"
 
 ' Row 6 → Row 7  (candidate → extensions)
 candidate ||--|| candidate_preference    : "preferences"
@@ -564,11 +564,14 @@ candidate ||--|| candidate_notice_period : "notice period"
 
 ' Row 2 → Row 7
 job_title ||--o{ candidate_preference    : "preferred title"
-company   ||--o{ candidate_notice_period : "notice at"
+company   ||--o{ candidate_notice_period : "company_id"
 
 ' Row 6 → Row 8  (candidate → analytics)
-candidate ||--|| candidate_score          : "score"
-candidate ||--|| candidate_resume_summary : "summary"
+candidate ||--|| candidate_resume_summary                   : "summary"
+
+' Row 6 → Row 8  (candidate → score)
+candidate ||--|| candidate_score                            : "score"
+candidate_score ||--o{ candidate_score_category_wise        : "category scores"
 
 ' Row 6 → Row 9  (candidate → history)
 candidate   ||--o{ candidate_experience : "experience"
@@ -579,13 +582,13 @@ company     ||--o{ candidate_experience : "company"
 designation ||--o{ candidate_experience : "designation"
 industry    ||--o{ candidate_experience : "industry"
 job_title   ||--o{ candidate_experience : "title"
-institution ||--o{ candidate_education  : "institution"
-degree      ||--o{ candidate_education  : "degree"
-specialization ||--o{ candidate_education : "specialization"
+institution ||--o{ candidate_education  : "institution_id"
+degree      ||--o{ candidate_education  : "degree_id"
+specialization ||--o{ candidate_education : "specialization_id"
 
 ' Row 2/5/6 → Row 10  (candidate → misc)
 candidate               ||--o{ candidate_skill        : "skills"
-skill                   ||--o{ candidate_skill        : "skill ref"
+skill                   ||--o{ candidate_skill        : "skill_id"
 skill_validation_status ||--o{ candidate_skill        : "validation"
 candidate               ||--o{ candidate_document     : "documents"
 candidate               ||--o{ candidate_social_media : "social links"

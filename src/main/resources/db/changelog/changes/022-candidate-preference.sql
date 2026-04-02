@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset tvarah:023-1 labels:v0.0.1 context:ddl
+--changeset tvarah:022-1 labels:v0.0.1 context:ddl
 --comment: Create candidate_preference table (1:1 with candidate)
 CREATE TABLE candidate_preference (
     id                         UUID           NOT NULL DEFAULT gen_random_uuid(),
