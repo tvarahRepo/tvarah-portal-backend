@@ -23,3 +23,10 @@ CREATE INDEX idx_cj_job_id       ON candidate_job (job_id);
 CREATE INDEX idx_cj_is_active    ON candidate_job (is_active);
 CREATE INDEX idx_cj_status       ON candidate_job (status);
 --rollback DROP TABLE candidate_job;
+
+--changeset tvarah:031-2 labels:v0.0.1 context:ddl
+--comment: Widen created_by and updated_by in candidate_job to hold email addresses
+ALTER TABLE candidate_job
+    ALTER COLUMN created_by TYPE VARCHAR(200),
+    ALTER COLUMN updated_by TYPE VARCHAR(200);
+--rollback ALTER TABLE candidate_job ALTER COLUMN created_by TYPE VARCHAR(20), ALTER COLUMN updated_by TYPE VARCHAR(20);
