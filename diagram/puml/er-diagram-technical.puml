@@ -2,8 +2,9 @@
 
 top to bottom direction
 skinparam linetype ortho
-skinparam nodesep 60
-skinparam ranksep 80
+skinparam nodesep 80
+skinparam ranksep 120
+skinparam ArrowThickness 1
 
 skinparam entity {
     BorderColor       #555555
@@ -76,10 +77,11 @@ together {
     }
 
     entity "specialization" as specialization #D5F5E3 {
-        * id    : UUID         <<PK>>
+        * id                : UUID         <<PK>>
         --
-        * name  : VARCHAR(150) <<UNIQUE, INDEX>>
-        alias   : VARCHAR(100) <<NULL>>
+        * name              : VARCHAR(150) <<UNIQUE, INDEX>>
+        alias               : VARCHAR(100) <<NULL>>
+        eligible_degree_id  : UUID         <<FK, INDEX, NULL>>
     }
 
     entity "institution" as institution #D5F5E3 {
@@ -93,8 +95,9 @@ together {
         tier                    : VARCHAR(100)  <<INDEX, NULL>>
         * city                  : VARCHAR(150)  <<INDEX>>
         * state                 : VARCHAR(150)  <<INDEX>>
+        country                 : VARCHAR(150)  <<INDEX, NULL>>
         ranking                 : VARCHAR(100)  <<INDEX, NULL>>
-        is_verified             : BOOLEAN       DEFAULT FALSE
+        * is_verified           : BOOLEAN       DEFAULT FALSE
     }
 }
 
@@ -115,9 +118,14 @@ together {
         headquarter_country   : VARCHAR(100) <<NULL>>
         founded_year          : INT          <<NULL>>
         no_of_employees       : INT          <<NULL>>
-        review_count          : INT          DEFAULT 0
+        * review_count        : INT          DEFAULT 0
         avg_rating            : DECIMAL(3,1) CHECK 0-5
-        mca_verified          : BOOLEAN      DEFAULT FALSE
+        * mca_verified             : BOOLEAN      DEFAULT FALSE
+        status                     : VARCHAR(100) <<FK, INDEX, NULL>>
+        sector                     : VARCHAR(100) <<NULL>>
+        company_domain             : VARCHAR(200) <<NULL>>
+        candidate_personal_domain  : VARCHAR(200) <<NULL>>
+        domain_source              : VARCHAR(100) <<NULL>>
     }
 
     entity "job_title" as job_title #D5F5E3 {
@@ -136,7 +144,7 @@ together {
         category     : VARCHAR(100)  <<INDEX, NULL>>
         department   : VARCHAR(100)  <<FK, INDEX, NULL>>
         alias        : VARCHAR(150)  <<NULL>>
-        is_active    : BOOLEAN       DEFAULT TRUE
+        * is_active  : BOOLEAN       DEFAULT TRUE
     }
 
     entity "skill" as skill #D5F5E3 {
@@ -146,8 +154,8 @@ together {
         * category      : VARCHAR(200)  <<INDEX>>
         tier            : VARCHAR(50)   <<INDEX, NULL>>
         * department    : VARCHAR(100)  <<FK, INDEX>>
-        is_technical    : BOOLEAN       DEFAULT FALSE
-        is_verified     : BOOLEAN       DEFAULT FALSE
+        * is_technical  : BOOLEAN       DEFAULT FALSE
+        * is_verified   : BOOLEAN       DEFAULT FALSE
     }
 
     entity "specialization_degree_map" as specialization_degree_map #D5F5E3 {
@@ -175,6 +183,12 @@ together {
         --
         description   : TEXT         <<NULL>>
     }
+
+    entity "company_status" as company_status #FEF9E7 {
+        * name        : VARCHAR(100) <<PK>>
+        --
+        description   : TEXT         <<NULL>>
+    }
 }
 
 ' ─────────────────────────────────────────────────────────────
@@ -190,8 +204,8 @@ together {
         * email            : VARCHAR(255)  <<UNIQUE, INDEX>>
         * role             : VARCHAR(50)   <<INDEX>>
         status             : VARCHAR(100)  <<FK, INDEX>>
-        created_on         : TIMESTAMPTZ   DEFAULT now()
-        updated_on         : TIMESTAMPTZ   DEFAULT now()
+        * created_on       : TIMESTAMPTZ   DEFAULT now()
+        * updated_on       : TIMESTAMPTZ   DEFAULT now()
     }
 
     entity "user_target" as user_target #D6EAF8 {
@@ -205,47 +219,57 @@ together {
         * updated_on       : TIMESTAMPTZ DEFAULT now()
     }
 
-    entity "client" as client #D6EAF8 {
-        * id           : UUID          <<PK>>
+    entity "company_user" as company_user #D6EAF8 {
+        * id         : UUID        <<PK>>
         --
-        * name         : VARCHAR(200)  <<UNIQUE, INDEX>>
-        industry       : VARCHAR(100)  <<FK, INDEX, NULL>>
-        size           : INT           <<NULL>>
-        recruiter_id   : UUID          <<FK, INDEX, NULL>>
-        created_on     : TIMESTAMPTZ   DEFAULT now()
-        updated_on     : TIMESTAMPTZ   DEFAULT now()
+        * company_id : UUID        <<FK, INDEX>>
+        * user_id    : UUID        <<FK, INDEX>>
+        * role       : VARCHAR(50) <<INDEX>>
     }
 
     entity "job_description" as job_description #D6EAF8 {
         * id                       : UUID          <<PK>>
         --
-        client_id                  : UUID          <<FK, INDEX, NULL>>
+        * code                     : VARCHAR(10)   <<UNIQUE, INDEX>>
+        company_id                 : UUID          <<FK, INDEX, NULL>>
         * job_title_id             : UUID          <<FK, INDEX>>
+        job_type                   : ENUM          <<Full Time, Part Time, Contract, Internship>>
+        job_mode                   : ENUM          <<Onsite, Hybrid, Remote>>
+        job_level                  : ENUM          <<Junior, Mid, Senior, Lead, Manager>>
+        ..
         * job_description_text     : TEXT
+        summary_responsibilities   : TEXT[]        <<NULL>>
         ..
         experience_min_yrs         : DECIMAL(4,1)  <<NULL>>
         experience_max_yrs         : DECIMAL(4,1)  <<NULL>>
         ..
-        required_skills            : TEXT[]        <<NULL>>
-        must_have_skills           : TEXT[]        <<NULL>>
-        good_have_skills           : TEXT[]        <<NULL>>
+        required_skills            : UUID[]        <<FK→skill, NULL>>
+        good_to_have_skills        : UUID[]        <<FK→skill, NULL>>
         ..
         salary_min                 : DECIMAL(10,2) <<NULL>>
         salary_max                 : DECIMAL(10,2) <<NULL>>
         ..
-        total_positions            : INT           DEFAULT 2
-        total_positions_selected   : INT           DEFAULT 0
-        total_rounds               : INT           DEFAULT 2
+        * total_positions          : INT           DEFAULT 2
+        * total_positions_selected : INT           DEFAULT 0
+        * total_rounds             : INT           DEFAULT 2
         ..
-        status                     : VARCHAR(100)  <<FK, INDEX>>
+        * status                   : VARCHAR(100)  <<FK, INDEX>>
         closed_on                  : TIMESTAMPTZ   <<NULL>>
-        jd_score                   : DECIMAL(5,2)  <<NULL>>
-        non_negotiable_rules       : JSONB         <<NULL>>
         ..
-        created_on                 : TIMESTAMPTZ   DEFAULT now()
-        updated_on                 : TIMESTAMPTZ   DEFAULT now()
+        * created_on               : TIMESTAMPTZ   DEFAULT now()
+        * updated_on               : TIMESTAMPTZ   DEFAULT now()
         created_by                 : VARCHAR(200)  <<NULL>>
         updated_by                 : VARCHAR(200)  <<NULL>>
+    }
+
+    entity "job_description_summary" as job_description_summary #D6EAF8 {
+        * id                  : UUID          <<PK>>
+        --
+        * job_description_id  : UUID          <<FK, UNIQUE, INDEX>>
+        parsed_jd             : JSONB         <<NULL>>
+        enriched_jd           : JSONB         <<NULL>>
+        jd_score              : DECIMAL(12,2) <<NULL>>
+        non_negotiable_rules  : JSONB         <<NULL>>
     }
 }
 
@@ -290,28 +314,34 @@ together {
 ' ─────────────────────────────────────────────────────────────
 
 entity "candidate" as candidate #F4ECF7 {
-    * id                   : UUID          <<PK>>
+    * id                     : UUID          <<PK>>
     --
-    * code                 : SERIAL
-    * first_name           : VARCHAR(150)
-    * last_name            : VARCHAR(150)
-    email                  : VARCHAR(255)  <<UNIQUE, INDEX, NULL>>
-    address                : TEXT          <<NULL>>
-    city                   : VARCHAR(150)  <<NULL>>
-    country                : VARCHAR(150)  <<NULL>>
-    * phone_number         : VARCHAR(20)   <<INDEX>>
-    whatsapp_number        : VARCHAR(20)   <<INDEX, NULL>>
-    status                 : VARCHAR(100)  <<FK, INDEX>>
-    * job_title_id         : UUID          <<FK, INDEX>>
-    * designation_id       : UUID          <<FK, INDEX>>
-    * current_company_id   : UUID          <<FK, INDEX>>
-    total_experience       : DECIMAL(12,2) <<INDEX>>
-    relevant_experience    : DECIMAL(12,2) <<INDEX>>
-    resume_url             : TEXT          <<NULL>>
-    * created_on           : TIMESTAMPTZ   <<INDEX>>
-    updated_on             : TIMESTAMPTZ   <<NULL>>
-    * created_by           : VARCHAR(200)
-    updated_by             : VARCHAR(200)  <<NULL>>
+    * code                   : VARCHAR(10)   <<UNIQUE, INDEX>>
+    * first_name             : VARCHAR(150)
+    middle_name              : VARCHAR(150)  <<NULL>>
+    * last_name              : VARCHAR(150)
+    date_of_birth            : DATE          <<NULL>>
+    gender                   : VARCHAR(20)   <<NULL>>
+    primary_email            : VARCHAR(255)  <<UNIQUE, INDEX, NULL>>
+    secondary_email          : VARCHAR(255)  <<NULL>>
+    address                  : TEXT          <<NULL>>
+    city                     : VARCHAR(150)  <<NULL>>
+    country                  : VARCHAR(150)  <<NULL>>
+    country_code             : VARCHAR(10)   <<NULL>>
+    primary_phone_number     : VARCHAR(20)   <<INDEX, NULL>>
+    secondary_phone_number   : VARCHAR(20)   <<NULL>>
+    avatar_color             : VARCHAR(20)   <<NULL>>
+    starred                  : BOOLEAN       DEFAULT FALSE
+    * status                 : VARCHAR(100)  <<FK, INDEX>>
+    * job_title_id           : UUID          <<FK, INDEX>>
+    * designation_id         : UUID          <<FK, INDEX>>
+    * current_company_id     : UUID          <<FK, INDEX>>
+    total_experience         : DECIMAL(12,2) <<INDEX>>
+    relevant_experience      : DECIMAL(12,2) <<INDEX>>
+    * created_on             : TIMESTAMPTZ   <<INDEX>>
+    updated_on               : TIMESTAMPTZ   <<NULL>>
+    * created_by             : VARCHAR(200)
+    updated_by               : VARCHAR(200)  <<NULL>>
 }
 
 ' ─────────────────────────────────────────────────────────────
@@ -326,15 +356,16 @@ together {
         current_location            : VARCHAR(100)  <<INDEX, NULL>>
         primary_preferred_location  : VARCHAR(100)  <<NULL>>
         preferred_locations         : TEXT[]        <<NULL>>
-        can_relocate                : BOOLEAN       DEFAULT FALSE
+        * can_relocate              : BOOLEAN       DEFAULT FALSE
         preferred_job_title_id      : UUID          <<FK, INDEX, NULL>>
         current_ctc                 : DECIMAL(12,2) <<NULL>>
         expected_ctc_min            : DECIMAL(12,2) <<NULL>>
         expected_ctc_max            : DECIMAL(12,2) <<NULL>>
-        ctc_currency                : VARCHAR(5)    DEFAULT 'INR'
+        * ctc_currency              : VARCHAR(5)    DEFAULT 'INR'
         work_mode_preference        : VARCHAR(50)   <<INDEX, NULL>>
+        work_authorization          : BOOLEAN       DEFAULT FALSE
         * created_on                : TIMESTAMPTZ   DEFAULT now()
-        updated_on                  : TIMESTAMPTZ   DEFAULT now()
+        * updated_on                : TIMESTAMPTZ   DEFAULT now()
         created_by                  : VARCHAR(200)  <<NULL>>
         updated_by                  : VARCHAR(200)  <<NULL>>
     }
@@ -344,13 +375,13 @@ together {
         --
         * candidate_id           : UUID          <<FK, UNIQUE, INDEX>>
         * company_id             : UUID          <<FK, INDEX>>
-        is_in_notice_period      : BOOLEAN       DEFAULT FALSE
+        * is_in_notice_period    : BOOLEAN       DEFAULT FALSE
         * notice_period_duration : SMALLINT
         resignation_date         : TIMESTAMPTZ   <<INDEX, NULL>>
         earliest_joining_date    : TIMESTAMPTZ   <<INDEX, NULL>>
         last_working_date        : TIMESTAMPTZ   <<INDEX, NULL>>
         * created_on             : TIMESTAMPTZ   DEFAULT now()
-        updated_on               : TIMESTAMPTZ   DEFAULT now()
+        * updated_on             : TIMESTAMPTZ   DEFAULT now()
         created_by               : VARCHAR(200)  <<NULL>>
         updated_by               : VARCHAR(200)  <<NULL>>
     }
@@ -369,13 +400,13 @@ together {
         max_score             : DECIMAL(5,2)  <<NULL>>
         strength              : VARCHAR(50)   <<NULL>>
         feedback_comments     : TEXT          <<NULL>>
-        drop_flag             : BOOLEAN       DEFAULT FALSE
+        * drop_flag           : BOOLEAN       DEFAULT FALSE
         drop_flag_message     : TEXT          <<NULL>>
         fraud_risk            : VARCHAR(50)   <<INDEX, NULL>>
-        fraud_status          : BOOLEAN       DEFAULT FALSE <<INDEX>>
-        qualitative_data      : JSONB         <<NULL>>
-        created_on            : TIMESTAMPTZ   DEFAULT now()
-        updated_on            : TIMESTAMPTZ   DEFAULT now() <<INDEX>>
+        * fraud_status        : BOOLEAN       DEFAULT FALSE <<INDEX>>
+
+        * created_on          : TIMESTAMPTZ   DEFAULT now()
+        * updated_on          : TIMESTAMPTZ   DEFAULT now() <<INDEX>>
     }
 
     entity "candidate_score_category_wise" as candidate_score_category_wise #FDEDEC {
@@ -403,6 +434,51 @@ together {
         ..
         * domain_depth             : VARCHAR(30)
         * domain_depth_tags        : TEXT[]
+        ..
+        parsed_resume              : JSONB        <<NULL>>
+        weakness                   : TEXT[]       <<NULL>>
+        strength                   : TEXT[]       <<NULL>>
+    }
+
+    entity "candidate_intelligence_insight" as candidate_intelligence_insight #FDEDEC {
+        * id                                            : UUID          <<PK>>
+        --
+        * candidate_id                                  : UUID          <<FK, INDEX>>
+        ..
+        decision_signal                                 : ENUM          <<Strong, Proceed, Hold, Reject>>
+        priority_level                                  : ENUM          <<Low, Moderate, High>>
+        decision_rationale                              : TEXT          <<NULL>>
+        ..
+        candidate_fit_summary_executive_summary         : TEXT          <<NULL>>
+        candidate_fit_summary_risk_indicators           : TEXT[]        <<NULL>>
+        ..
+        education_assessment_credibility_level          : ENUM          <<Weak, Moderate, Strong>>
+        institution_verification_status                 : ENUM          <<Verified, Unverified, Suspicious>>
+        timeline_integrity                              : ENUM          <<Clean, Minor Gaps, Significant Gaps>>
+        education_assessment_executive_summary          : TEXT          <<NULL>>
+        education_assessment_hiring_impact              : TEXT          <<NULL>>
+        education_assessment_risk_indicators            : JSONB         <<NULL>>
+        ..
+        experience_credibility_level                    : ENUM          <<Low, Medium, High>>
+        employment_stability                            : ENUM          <<Stable, Moderate, Unstable>>
+        experience_assessment_executive_summary         : TEXT          <<NULL>>
+        experience_assessment_hiring_impact             : TEXT          <<NULL>>
+        experience_assessment_risk_indicators           : JSONB         <<NULL>>
+        ..
+        technical_capability_level                      : ENUM          <<Advanced, Intermediate, Basic, Insufficient>>
+        skill_authenticity_level                        : ENUM          <<High, Medium, Low>>
+        skills_assessment_executive_summary             : TEXT          <<NULL>>
+        skills_assessment_hiring_impact                 : TEXT          <<NULL>>
+        skills_assessment_risk_indicators               : JSONB         <<NULL>>
+        ..
+        domain_assessment_primary_domain                : VARCHAR(100)  <<NULL>>
+        domain_impact_level                             : ENUM          <<High, Medium, Low>>
+        domain_assessment_executive_summary             : TEXT          <<NULL>>
+        domain_assessment_hiring_impact                 : TEXT          <<NULL>>
+        domain_assessment_risk_indicators               : JSONB         <<NULL>>
+        ..
+        education_insights                              : JSONB         <<NULL>>
+        experience_insights                             : JSONB         <<NULL>>
     }
 }
 
@@ -415,14 +491,16 @@ together {
         * id                 : UUID          <<PK>>
         --
         * candidate_id       : UUID          <<FK, INDEX>>
-        company              : VARCHAR(200)  <<FK, INDEX, NULL>>
-        designation          : VARCHAR(150)  <<FK, INDEX, NULL>>
-        industry             : VARCHAR(150)  <<FK, INDEX, NULL>>
+        company_id           : UUID          <<FK, INDEX, NULL>>
+        designation_id       : UUID          <<FK, INDEX, NULL>>
+        industry_id          : UUID          <<FK, INDEX, NULL>>
         job_title_id         : UUID          <<FK, INDEX, NULL>>
         * start_date         : DATE
         end_date             : DATE          <<NULL>>
-        is_current           : BOOLEAN       DEFAULT FALSE
-        experience_summary   : TEXT          <<NULL>>
+        * is_current         : BOOLEAN       DEFAULT FALSE
+        role_description     : TEXT          <<NULL>>
+        work_location        : VARCHAR(150)  <<NULL>>
+        employment_type      : VARCHAR(50)   <<NULL>>
     }
 
     entity "candidate_education" as candidate_education #F4ECF7 {
@@ -432,9 +510,11 @@ together {
         institution_id        : UUID          <<FK, INDEX, NULL>>
         degree_id             : UUID          <<FK, INDEX, NULL>>
         specialization_id     : UUID          <<FK, INDEX, NULL>>
-        start_year            : SMALLINT      <<NULL>>
-        end_year              : SMALLINT      <<NULL>>
-        is_highest            : BOOLEAN       DEFAULT FALSE
+        start_date            : DATE          <<NULL>>
+        end_date              : DATE          <<NULL>>
+        mode                  : VARCHAR(50)   <<NULL>>
+        grade_or_gpa          : VARCHAR(20)   <<NULL>>
+        * is_highest          : BOOLEAN       DEFAULT FALSE
     }
 }
 
@@ -452,6 +532,8 @@ together {
         years_experience        : DECIMAL(4,1)  <<NULL, CHECK >= 0>>
         last_used_year          : SMALLINT      <<NULL>>
         * validation_status     : VARCHAR(100)  <<FK, INDEX>>
+        is_primary              : BOOLEAN       DEFAULT FALSE
+        score                   : DECIMAL(5,2)  <<NULL>>
         .. UNIQUE (candidate_id, skill_id) ..
     }
 
@@ -461,7 +543,7 @@ together {
         * candidate_id : UUID         <<FK, INDEX>>
         * type         : VARCHAR(50)  <<INDEX>>
         * url          : TEXT
-        uploaded_on    : TIMESTAMPTZ  DEFAULT now()
+        * uploaded_on  : TIMESTAMPTZ  DEFAULT now()
     }
 
     entity "candidate_social_media" as candidate_social_media #F4ECF7 {
@@ -470,6 +552,7 @@ together {
         * candidate_id : UUID        <<FK, INDEX>>
         * platform     : VARCHAR(50) <<INDEX>>
         * url          : TEXT
+        * is_verified  : BOOLEAN     DEFAULT FALSE
         .. UNIQUE (candidate_id, platform) ..
     }
 }
@@ -483,12 +566,12 @@ entity "candidate_job" as candidate_job #E8F8F5 {
     --
     * candidate_id : UUID          <<FK, INDEX>>
     * job_id       : UUID          <<FK, INDEX>>
-    * is_active    : BOOLEAN       DEFAULT TRUE <<INDEX>>
     status         : VARCHAR(100)  <<FK, INDEX>>
-    created_on     : TIMESTAMPTZ   DEFAULT now()
-    updated_on     : TIMESTAMPTZ   DEFAULT now()
-    created_by     : VARCHAR(20)   <<NULL>>
-    updated_by     : VARCHAR(20)   <<NULL>>
+    reason         : TEXT          <<NULL>>
+    * created_on   : TIMESTAMPTZ   DEFAULT now()
+    * updated_on   : TIMESTAMPTZ   DEFAULT now()
+    created_by     : VARCHAR(200)  <<NULL>>
+    updated_by     : VARCHAR(200)  <<NULL>>
     .. UNIQUE (candidate_id, job_id) ..
 }
 
@@ -505,7 +588,9 @@ together {
         skill_match_score        : DECIMAL(5,2)  <<INDEX, NULL>>
         domain_match_score       : DECIMAL(5,2)  <<INDEX, NULL>>
         jd_exp_relevance_score   : DECIMAL(5,2)  <<INDEX, NULL>>
-        status                   : VARCHAR(100)  <<FK, INDEX>>
+        score                    : DECIMAL(5,2)  <<INDEX, NULL>>
+        max_score                : DECIMAL(5,2)  <<NULL>>
+        * status                 : VARCHAR(100)  <<FK, INDEX>>
     }
 
     entity "candidate_job_interview" as candidate_job_interview #E8F8F5 {
@@ -520,16 +605,17 @@ together {
         ..
         * scheduled_on        : TIMESTAMPTZ   <<INDEX>>
         mode                  : VARCHAR(50)   <<NULL>>
-        status                : VARCHAR(100)  <<FK, INDEX>>
+        * status              : VARCHAR(100)  <<FK, INDEX>>
         ..
         questions             : TEXT[]        <<NULL>>
         focus_areas           : TEXT[]        <<NULL>>
         ..
         feedback              : TEXT          <<NULL>>
         score                 : DECIMAL(5,2)  <<NULL>>
+        max_score             : DECIMAL(5,2)  <<NULL>>
         ..
-        created_on            : TIMESTAMPTZ   DEFAULT now()
-        updated_on            : TIMESTAMPTZ   DEFAULT now()
+        * created_on          : TIMESTAMPTZ   DEFAULT now()
+        * updated_on          : TIMESTAMPTZ   DEFAULT now()
         created_by            : UUID          <<NULL>>
         updated_by            : UUID          <<NULL>>
     }
@@ -544,6 +630,7 @@ institution    ||--o{ institution               : "parent_institution_id"
 department     ||--o{ department                : "parent_department"
 specialization ||--o{ specialization_degree_map : "specialization_id"
 degree         ||--o{ specialization_degree_map : "degree_id"
+degree         ||--o{ specialization            : "eligible_degree_id"
 
 ' Row 1 → Row 2
 industry   ||--o{ company     : "industry"
@@ -552,15 +639,17 @@ department ||--o{ designation : "department"
 department ||--o{ skill       : "department"
 
 ' Row 3 → Row 4
-user_status ||--o{ user            : "status"
-user        ||--o{ user_target     : "user_id"
-job_status  ||--o{ job_description : "status"
+user_status    ||--o{ user            : "status"
+user           ||--o{ user_target     : "user_id"
+job_status     ||--o{ job_description : "status"
+company_status ||--o{ company         : "status"
 
 ' Row 2/4 → Row 4
-industry  ||--o{ client          : "industry"
-user      ||--o{ client          : "recruiter_id"
-client    ||--o{ job_description : "client_id"
-job_title ||--o{ job_description : "job_title_id"
+company   ||--o{ company_user    : "company_id"
+user      ||--o{ company_user    : "user_id"
+company   ||--o{ job_description         : "company_id"
+job_title ||--o{ job_description         : "job_title_id"
+job_description ||--|| job_description_summary : "job_description_id"
 
 ' Row 5 → Row 6
 candidate_status ||--o{ candidate : "status"
@@ -580,6 +669,7 @@ company   ||--o{ candidate_notice_period : "company_id"
 
 ' Row 6 → Row 8
 candidate ||--|| candidate_resume_summary                 : "candidate_id"
+candidate ||--o{ candidate_intelligence_insight           : "candidate_id"
 
 ' Row 6 → Row 8
 candidate ||--|| candidate_score                          : "candidate_id"
@@ -590,13 +680,13 @@ candidate ||--o{ candidate_experience : "candidate_id"
 candidate ||--o{ candidate_education  : "candidate_id"
 
 ' Row 1/2 → Row 9
-company     ||--o{ candidate_experience : "company"
-designation ||--o{ candidate_experience : "designation"
-industry    ||--o{ candidate_experience : "industry"
-job_title   ||--o{ candidate_experience : "job_title_id"
-institution ||--o{ candidate_education  : "institution_id"
-degree      ||--o{ candidate_education  : "degree_id"
-specialization ||--o{ candidate_education : "specialization_id"
+company        ||--o{ candidate_experience : "company_id"
+designation    ||--o{ candidate_experience : "designation_id"
+industry       ||--o{ candidate_experience : "industry_id"
+job_title      ||--o{ candidate_experience : "job_title_id"
+institution    ||--o{ candidate_education  : "institution_id"
+degree         ||--o{ candidate_education  : "degree_id"
+specialization ||--o{ candidate_education  : "specialization_id"
 
 ' Row 2/5/6 → Row 10
 candidate               ||--o{ candidate_skill        : "candidate_id"

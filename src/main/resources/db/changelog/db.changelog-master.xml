@@ -12,9 +12,9 @@
         001  industry
         002  department
         003  degree
-        004  specialization
-        005  institution
-        006  company
+        004  specialization          (+ eligible_degree_id FK → degree)
+        005  institution             (+ country field)
+        006  company                 (company_status DDL+seed + company with new fields)
         007  job_title
         008  designation
         009  skill
@@ -31,33 +31,34 @@
 
         Core Business
         018  user
-        019  client
-        020  job_description
+        019  company_user            (replaces client)
+        020  job_description         (+ job_description_summary)
 
         Candidate Core
         021  candidate
 
         Candidate Extensions (1:1)
-        022  candidate_preference
+        022  candidate_preference    (+ work_authorization)
         023  candidate_notice_period
 
-        Candidate Analytics (1:1)
+        Candidate Analytics
         024  candidate_score
-        025  candidate_resume_summary
+        025  candidate_resume_summary  (+ parsed_resume, weakness, strength)
+                                       (+ candidate_intelligence_insight)
 
         Candidate History (1:N)
-        026  candidate_experience
-        027  candidate_education
+        026  candidate_experience    (FK-based company/designation/industry + new fields)
+        027  candidate_education     (start/end as DATE + mode, grade_or_gpa)
 
         Candidate Misc (1:N)
-        028  candidate_skill
+        028  candidate_skill         (+ is_primary, score)
         029  candidate_document
-        030  candidate_social_media
+        030  candidate_social_media  (+ is_verified)
 
         Candidate Pipeline
-        031  candidate_job
-        032  candidate_job_evaluation
-        033  candidate_job_interview
+        031  candidate_job           (removed is_active, added reason)
+        032  candidate_job_evaluation (+ score, max_score)
+        033  candidate_job_interview  (+ max_score)
         034  candidate_score_category_wise
         035  user_target
 

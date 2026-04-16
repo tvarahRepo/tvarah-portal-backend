@@ -9,6 +9,8 @@ CREATE TABLE candidate_job_evaluation (
     skill_match_score      DECIMAL(5,2),
     domain_match_score     DECIMAL(5,2),
     jd_exp_relevance_score DECIMAL(5,2),
+    score                  DECIMAL(5,2),
+    max_score              DECIMAL(5,2),
     status                 VARCHAR(100)  NOT NULL,
     CONSTRAINT pk_candidate_job_evaluation PRIMARY KEY (id),
     CONSTRAINT fk_cje_candidate_job_id     FOREIGN KEY (candidate_job_id) REFERENCES candidate_job (id),
@@ -19,5 +21,6 @@ CREATE INDEX idx_cje_jd_overall_match_score ON candidate_job_evaluation (jd_over
 CREATE INDEX idx_cje_skill_match_score      ON candidate_job_evaluation (skill_match_score);
 CREATE INDEX idx_cje_domain_match_score     ON candidate_job_evaluation (domain_match_score);
 CREATE INDEX idx_cje_jd_exp_relevance_score ON candidate_job_evaluation (jd_exp_relevance_score);
+CREATE INDEX idx_cje_score                  ON candidate_job_evaluation (score);
 CREATE INDEX idx_cje_status                 ON candidate_job_evaluation (status);
 --rollback DROP TABLE candidate_job_evaluation;

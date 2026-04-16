@@ -10,6 +10,8 @@ CREATE TABLE candidate_skill (
     years_experience  DECIMAL(4,1) CHECK (years_experience >= 0),
     last_used_year    SMALLINT,
     validation_status VARCHAR(100) NOT NULL,
+    is_primary        BOOLEAN      NOT NULL DEFAULT FALSE,
+    score             DECIMAL(5,2),
     CONSTRAINT pk_candidate_skill       PRIMARY KEY (id),
     CONSTRAINT uq_candidate_skill       UNIQUE (candidate_id, skill_id),
     CONSTRAINT fk_csk_candidate_id      FOREIGN KEY (candidate_id)      REFERENCES candidate (id),

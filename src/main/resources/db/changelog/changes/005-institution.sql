@@ -12,6 +12,7 @@ CREATE TABLE institution (
     tier                  VARCHAR(100),
     city                  VARCHAR(150) NOT NULL,
     state                 VARCHAR(150) NOT NULL,
+    country               VARCHAR(150),
     ranking               VARCHAR(100),
     is_verified           BOOLEAN      NOT NULL DEFAULT FALSE,
     CONSTRAINT pk_institution        PRIMARY KEY (id),
@@ -25,5 +26,6 @@ CREATE INDEX idx_institution_category              ON institution (category);
 CREATE INDEX idx_institution_tier                  ON institution (tier);
 CREATE INDEX idx_institution_city                  ON institution (city);
 CREATE INDEX idx_institution_state                 ON institution (state);
+CREATE INDEX idx_institution_country               ON institution (country);
 CREATE INDEX idx_institution_ranking               ON institution (ranking);
 --rollback DROP TABLE institution;

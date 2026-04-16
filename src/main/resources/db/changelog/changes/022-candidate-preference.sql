@@ -15,6 +15,7 @@ CREATE TABLE candidate_preference (
     expected_ctc_max           DECIMAL(12,2),
     ctc_currency               VARCHAR(5)     NOT NULL DEFAULT 'INR',
     work_mode_preference       VARCHAR(50),
+    work_authorization         BOOLEAN        NOT NULL DEFAULT FALSE,
     created_on                 TIMESTAMPTZ    NOT NULL DEFAULT now(),
     updated_on                 TIMESTAMPTZ    NOT NULL DEFAULT now(),
     created_by                 VARCHAR(200),
@@ -24,8 +25,8 @@ CREATE TABLE candidate_preference (
     CONSTRAINT fk_cp_candidate_id                   FOREIGN KEY (candidate_id)           REFERENCES candidate (id),
     CONSTRAINT fk_cp_preferred_job_title_id         FOREIGN KEY (preferred_job_title_id) REFERENCES job_title (id)
 );
-CREATE INDEX idx_cp_candidate_id         ON candidate_preference (candidate_id);
-CREATE INDEX idx_cp_current_location     ON candidate_preference (current_location);
-CREATE INDEX idx_cp_preferred_job_title  ON candidate_preference (preferred_job_title_id);
-CREATE INDEX idx_cp_work_mode_preference ON candidate_preference (work_mode_preference);
+CREATE INDEX idx_cp_candidate_id        ON candidate_preference (candidate_id);
+CREATE INDEX idx_cp_current_location    ON candidate_preference (current_location);
+CREATE INDEX idx_cp_preferred_job_title ON candidate_preference (preferred_job_title_id);
+CREATE INDEX idx_cp_work_mode           ON candidate_preference (work_mode_preference);
 --rollback DROP TABLE candidate_preference;

@@ -26,7 +26,9 @@ public class SecurityConfig {
             "/swagger-ui",
             "/swagger-ui/oauth2-redirect.html",
             "/actuator/health",
-            "/actuator/info"
+            "/actuator/info",
+            "/auth/login",
+            "/auth/verify-otp"
     };
 
     private final JwtAuthConverter jwtAuthConverter;

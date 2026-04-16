@@ -7,6 +7,7 @@ CREATE TABLE candidate_social_media (
     candidate_id UUID        NOT NULL,
     platform     VARCHAR(50) NOT NULL,
     url          TEXT        NOT NULL,
+    is_verified  BOOLEAN     NOT NULL DEFAULT FALSE,
     CONSTRAINT pk_candidate_social_media PRIMARY KEY (id),
     CONSTRAINT uq_candidate_social_media UNIQUE (candidate_id, platform),
     CONSTRAINT fk_csm_candidate_id       FOREIGN KEY (candidate_id) REFERENCES candidate (id)

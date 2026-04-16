@@ -1,17 +1,17 @@
 --liquibase formatted sql
 
 --changeset tvarah:031-1 labels:v0.0.1 context:ddl
---comment: Create candidate_job table
+--comment: Create candidate_job table — links a candidate to a job opening
 CREATE TABLE candidate_job (
     id           UUID         NOT NULL DEFAULT gen_random_uuid(),
     candidate_id UUID         NOT NULL,
     job_id       UUID         NOT NULL,
-    is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
     status       VARCHAR(100),
+    reason       TEXT,
     created_on   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_on   TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    created_by   VARCHAR(20),
-    updated_by   VARCHAR(20),
+    created_by   VARCHAR(200),
+    updated_by   VARCHAR(200),
     CONSTRAINT pk_candidate_job   PRIMARY KEY (id),
     CONSTRAINT uq_candidate_job   UNIQUE (candidate_id, job_id),
     CONSTRAINT fk_cj_candidate_id FOREIGN KEY (candidate_id) REFERENCES candidate (id),
@@ -20,13 +20,5 @@ CREATE TABLE candidate_job (
 );
 CREATE INDEX idx_cj_candidate_id ON candidate_job (candidate_id);
 CREATE INDEX idx_cj_job_id       ON candidate_job (job_id);
-CREATE INDEX idx_cj_is_active    ON candidate_job (is_active);
 CREATE INDEX idx_cj_status       ON candidate_job (status);
 --rollback DROP TABLE candidate_job;
-
---changeset tvarah:031-2 labels:v0.0.1 context:ddl
---comment: Widen created_by and updated_by in candidate_job to hold email addresses
-ALTER TABLE candidate_job
-    ALTER COLUMN created_by TYPE VARCHAR(200),
-    ALTER COLUMN updated_by TYPE VARCHAR(200);
---rollback ALTER TABLE candidate_job ALTER COLUMN created_by TYPE VARCHAR(20), ALTER COLUMN updated_by TYPE VARCHAR(20);

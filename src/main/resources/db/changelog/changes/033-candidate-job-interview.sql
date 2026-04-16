@@ -16,6 +16,7 @@ CREATE TABLE candidate_job_interview (
     focus_areas       TEXT[],
     feedback          TEXT,
     score             DECIMAL(5,2),
+    max_score         DECIMAL(5,2),
     created_on        TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_on        TIMESTAMPTZ   NOT NULL DEFAULT now(),
     created_by        UUID,

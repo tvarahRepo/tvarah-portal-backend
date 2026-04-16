@@ -2,8 +2,9 @@
 
 top to bottom direction
 skinparam linetype ortho
-skinparam nodesep 60
-skinparam ranksep 80
+skinparam nodesep 80
+skinparam ranksep 120
+skinparam ArrowThickness 1
 
 skinparam entity {
     BorderColor       #555555
@@ -68,10 +69,11 @@ together {
     }
 
     entity "specialization" as specialization #D5F5E3 {
-        id    : uuid
+        id                 : uuid
         --
-        name  : string
-        alias : string
+        name               : string
+        alias              : string
+        eligible_degree_id : uuid
     }
 
     entity "institution" as institution #D5F5E3 {
@@ -85,6 +87,7 @@ together {
         tier                  : string
         city                  : string
         state                 : string
+        country               : string
         ranking               : string
         is_verified           : boolean
     }
@@ -109,7 +112,12 @@ together {
         no_of_employees     : number
         review_count        : number
         avg_rating          : number
-        mca_verified        : boolean
+        mca_verified             : boolean
+        status                   : string
+        sector                   : string
+        company_domain           : string
+        candidate_personal_domain : string
+        domain_source            : string
     }
 
     entity "job_title" as job_title #D5F5E3 {
@@ -166,6 +174,12 @@ together {
         --
         description : string
     }
+
+    entity "company_status" as company_status #FEF9E7 {
+        name        : string  <<PK>>
+        --
+        description : string
+    }
 }
 
 ' ─────────────────────────────────────────────────────────────
@@ -196,30 +210,32 @@ together {
         updated_on       : timestamp
     }
 
-    entity "client" as client #D6EAF8 {
-        id           : uuid
+    entity "company_user" as company_user #D6EAF8 {
+        id         : uuid
         --
-        name         : string
-        industry     : string
-        size         : number
-        recruiter_id : uuid
-        created_on   : timestamp
-        updated_on   : timestamp
+        company_id : uuid
+        user_id    : uuid
+        role       : string
     }
 
     entity "job_description" as job_description #D6EAF8 {
         id                       : uuid
         --
-        client_id                : uuid
+        code                     : string
+        company_id               : uuid
         job_title_id             : uuid
+        job_type                 : enum
+        job_mode                 : enum
+        job_level                : enum
+        ..
         job_description_text     : string
+        summary_responsibilities : list
         ..
         experience_min_yrs       : number
         experience_max_yrs       : number
         ..
-        required_skills          : string
-        must_have_skills         : string
-        good_have_skills         : string
+        required_skills          : uuid list
+        good_to_have_skills      : uuid list
         ..
         salary_min               : number
         salary_max               : number
@@ -230,13 +246,21 @@ together {
         ..
         status                   : string
         closed_on                : timestamp
-        jd_score                 : number
-        non_negotiable_rules     : string
         ..
         created_on               : timestamp
         updated_on               : timestamp
         created_by               : string
         updated_by               : string
+    }
+
+    entity "job_description_summary" as job_description_summary #D6EAF8 {
+        id                   : uuid
+        --
+        job_description_id   : uuid
+        parsed_jd            : jsonb
+        enriched_jd          : jsonb
+        jd_score             : number
+        non_negotiable_rules : jsonb
     }
 }
 
@@ -281,28 +305,34 @@ together {
 ' ─────────────────────────────────────────────────────────────
 
 entity "candidate" as candidate #F4ECF7 {
-    id                   : uuid
+    id                     : uuid
     --
-    code                 : serial
-    first_name           : string
-    last_name            : string
-    email                : string
-    address              : string
-    city                 : string
-    country              : string
-    phone_number         : string
-    whatsapp_number      : string
-    status               : string
-    job_title_id         : uuid
-    designation_id       : uuid
-    current_company_id   : uuid
-    total_experience     : number
-    relevant_experience  : number
-    resume_url           : string
-    created_on           : timestamp
-    updated_on           : timestamp
-    created_by           : string
-    updated_by           : string
+    code                   : string
+    first_name             : string
+    middle_name            : string
+    last_name              : string
+    date_of_birth          : date
+    gender                 : string
+    primary_email          : string
+    secondary_email        : string
+    address                : string
+    city                   : string
+    country                : string
+    country_code           : string
+    primary_phone_number   : string
+    secondary_phone_number : string
+    avatar_color           : string
+    starred                : boolean
+    status                 : string
+    job_title_id           : uuid
+    designation_id         : uuid
+    current_company_id     : uuid
+    total_experience       : number
+    relevant_experience    : number
+    created_on             : timestamp
+    updated_on             : timestamp
+    created_by             : string
+    updated_by             : string
 }
 
 ' ─────────────────────────────────────────────────────────────
@@ -324,6 +354,7 @@ together {
         expected_ctc_max           : number
         ctc_currency               : string
         work_mode_preference       : string
+        work_authorization         : boolean
         created_on                 : timestamp
         updated_on                 : timestamp
         created_by                 : string
@@ -364,7 +395,7 @@ together {
         drop_flag_message : string
         fraud_risk        : string
         fraud_status      : boolean
-        qualitative_data  : jsonb
+
         created_on        : timestamp
         updated_on        : timestamp
     }
@@ -394,6 +425,43 @@ together {
         ..
         domain_depth              : string
         domain_depth_tags         : string
+        parsed_resume             : jsonb
+        weakness                  : string
+        strength                  : string
+    }
+
+    entity "candidate_intelligence_insight" as candidate_intelligence_insight #FDEDEC {
+        id                                              : uuid
+        --
+        candidate_id                                    : uuid
+        decision_signal                                 : enum
+        priority_level                                  : enum
+        decision_rationale                              : string
+        candidate_fit_summary_executive_summary         : string
+        candidate_fit_summary_risk_indicators           : list
+        education_assessment_credibility_level          : enum
+        institution_verification_status                 : enum
+        timeline_integrity                              : enum
+        education_assessment_executive_summary          : string
+        education_assessment_hiring_impact              : string
+        education_assessment_risk_indicators            : jsonb
+        experience_credibility_level                    : enum
+        employment_stability                            : enum
+        experience_assessment_executive_summary         : string
+        experience_assessment_hiring_impact             : string
+        experience_assessment_risk_indicators           : jsonb
+        technical_capability_level                      : enum
+        skill_authenticity_level                        : enum
+        skills_assessment_executive_summary             : string
+        skills_assessment_hiring_impact                 : string
+        skills_assessment_risk_indicators               : jsonb
+        domain_assessment_primary_domain                : string
+        domain_impact_level                             : enum
+        domain_assessment_executive_summary             : string
+        domain_assessment_hiring_impact                 : string
+        domain_assessment_risk_indicators               : jsonb
+        education_insights                              : jsonb
+        experience_insights                             : jsonb
     }
 }
 
@@ -403,17 +471,19 @@ together {
 
 together {
     entity "candidate_experience" as candidate_experience #F4ECF7 {
-        id                 : uuid
+        id               : uuid
         --
-        candidate_id       : uuid
-        company            : string
-        designation        : string
-        industry           : string
-        job_title_id       : uuid
-        start_date         : timestamp
-        end_date           : timestamp
-        is_current         : boolean
-        experience_summary : string
+        candidate_id     : uuid
+        company_id       : uuid
+        designation_id   : uuid
+        industry_id      : uuid
+        job_title_id     : uuid
+        start_date       : date
+        end_date         : date
+        is_current       : boolean
+        role_description : string
+        work_location    : string
+        employment_type  : string
     }
 
     entity "candidate_education" as candidate_education #F4ECF7 {
@@ -423,8 +493,10 @@ together {
         institution_id    : uuid
         degree_id         : uuid
         specialization_id : uuid
-        start_year        : number
-        end_year          : number
+        start_date        : date
+        end_date          : date
+        mode              : string
+        grade_or_gpa      : string
         is_highest        : boolean
     }
 }
@@ -443,6 +515,8 @@ together {
         years_experience  : number
         last_used_year    : number
         validation_status : string
+        is_primary        : boolean
+        score             : number
     }
 
     entity "candidate_document" as candidate_document #F4ECF7 {
@@ -460,6 +534,7 @@ together {
         candidate_id : uuid
         platform     : string
         url          : string
+        is_verified  : boolean
     }
 }
 
@@ -472,8 +547,8 @@ entity "candidate_job" as candidate_job #E8F8F5 {
     --
     candidate_id : uuid
     job_id       : uuid
-    is_active    : boolean
     status       : string
+    reason       : string
     created_on   : timestamp
     updated_on   : timestamp
     created_by   : string
@@ -493,6 +568,8 @@ together {
         skill_match_score       : number
         domain_match_score      : number
         jd_exp_relevance_score  : number
+        score                   : number
+        max_score               : number
         status                  : string
     }
 
@@ -515,6 +592,7 @@ together {
         ..
         feedback          : string
         score             : number
+        max_score         : number
         ..
         created_on        : timestamp
         updated_on        : timestamp
@@ -532,6 +610,7 @@ institution    ||--o{ institution               : "branch of"
 department     ||--o{ department                : "sub-dept of"
 specialization ||--o{ specialization_degree_map : "specialization"
 degree         ||--o{ specialization_degree_map : "degree"
+degree         ||--o{ specialization            : "eligible_degree_id"
 
 ' Row 1 → Row 2
 industry   ||--o{ company     : "industry"
@@ -540,15 +619,17 @@ department ||--o{ designation : "department"
 department ||--o{ skill       : "department"
 
 ' Row 3 → Row 4  (status → entity)
-user_status ||--o{ user            : "status"
-user        ||--o{ user_target     : "user_id"
-job_status  ||--o{ job_description : "status"
+user_status    ||--o{ user            : "status"
+user           ||--o{ user_target     : "user_id"
+job_status     ||--o{ job_description : "status"
+company_status ||--o{ company         : "status"
 
 ' Row 2/4 → Row 4
-industry  ||--o{ client          : "industry"
-user      ||--o{ client          : "recruiter"
-client    ||--o{ job_description : "client"
-job_title ||--o{ job_description : "title"
+company   ||--o{ company_user    : "company_id"
+user      ||--o{ company_user    : "user_id"
+company   ||--o{ job_description              : "company_id"
+job_title ||--o{ job_description              : "title"
+job_description ||--|| job_description_summary : "job_description_id"
 
 ' Row 5 → Row 6  (status → candidate)
 candidate_status ||--o{ candidate : "status"
@@ -568,6 +649,7 @@ company   ||--o{ candidate_notice_period : "company_id"
 
 ' Row 6 → Row 8  (candidate → analytics)
 candidate ||--|| candidate_resume_summary                   : "summary"
+candidate ||--o{ candidate_intelligence_insight             : "candidate_id"
 
 ' Row 6 → Row 8  (candidate → score)
 candidate ||--|| candidate_score                            : "score"
@@ -578,9 +660,9 @@ candidate   ||--o{ candidate_experience : "experience"
 candidate   ||--o{ candidate_education  : "education"
 
 ' Row 1/2 → Row 9
-company     ||--o{ candidate_experience : "company"
-designation ||--o{ candidate_experience : "designation"
-industry    ||--o{ candidate_experience : "industry"
+company     ||--o{ candidate_experience : "company_id"
+designation ||--o{ candidate_experience : "designation_id"
+industry    ||--o{ candidate_experience : "industry_id"
 job_title   ||--o{ candidate_experience : "title"
 institution ||--o{ candidate_education  : "institution_id"
 degree      ||--o{ candidate_education  : "degree_id"
