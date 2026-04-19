@@ -54,7 +54,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> completeProfile(@Valid @RequestBody CompleteProfileRequest request) {
         String keycloakUserId = SecurityUtils.getCurrentUserId()
                 .orElseThrow(() -> new com.tvarah.exception.UnauthorizedException("User not authenticated"));
-        authService.completeProfile(keycloakUserId, request.getFirstName(), request.getLastName());
+        authService.completeProfile(keycloakUserId, request.getFirstName(), request.getLastName(), request.getPassword());
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", null));
     }
 }

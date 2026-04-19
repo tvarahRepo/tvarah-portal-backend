@@ -121,17 +121,23 @@ public class AuthServiceImpl implements AuthService {
   }
 
   @Override
-  public void completeProfile(String keycloakUserId, String firstName, String lastName) {
-    UserRepresentation update = new UserRepresentation();
-    update.setFirstName(firstName);
-    update.setLastName(lastName);
-
+  public void completeProfile(String keycloakUserId, String firstName, String lastName, String password) {
     try {
+      UserRepresentation update = new UserRepresentation();
+      update.setFirstName(firstName);
+      update.setLastName(lastName);
       keycloakAdmin.realm(realm).users().get(keycloakUserId).update(update);
+
+      CredentialRepresentation credential = new CredentialRepresentation();
+      credential.setType(CredentialRepresentation.PASSWORD);
+      credential.setValue(password);
+      credential.setTemporary(false);
+      keycloakAdmin.realm(realm).users().get(keycloakUserId).resetPassword(credential);
+
       log.info("Profile completed for Keycloak user: {}", keycloakUserId);
     } catch (Exception e) {
-      log.error("Failed to update profile for Keycloak user: {}", keycloakUserId, e);
-      throw new BadRequestException("Failed to update profile");
+      log.error("Failed to complete profile for Keycloak user: {}", keycloakUserId, e);
+      throw new BadRequestException("Failed to complete profile");
     }
   }
 

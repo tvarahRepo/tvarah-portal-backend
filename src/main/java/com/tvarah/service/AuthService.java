@@ -14,5 +14,5 @@ public interface AuthService {
 
     void inviteUser(String email);
 
-    void completeProfile(String keycloakUserId, String firstName, String lastName);
+    void completeProfile(String keycloakUserId, String firstName, String lastName, String password);
 }
