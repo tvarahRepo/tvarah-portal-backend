@@ -33,7 +33,9 @@ public class SecurityConfig {
                         "/actuator/health",
                         "/actuator/info",
                         "/auth/login",
-                        "/auth/verify-otp"
+                        "/auth/verify-otp",
+                        "/auth/forgot-password",
+                        "/auth/reset-password"
         };
 
         private final JwtAuthConverter jwtAuthConverter;

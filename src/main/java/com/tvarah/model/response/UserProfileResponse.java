@@ -5,10 +5,8 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class AuthResponse {
+public class UserProfileResponse {
 
-    private TokenResponse token;
-    private boolean firstTimeUser;
     private String firstName;
     private String lastName;
 }

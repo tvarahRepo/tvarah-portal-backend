@@ -61,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
 
   private final ConcurrentHashMap<String, TokenResponse> tokenStore = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, OtpEntry> otpStore = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, OtpEntry> resetOtpStore = new ConcurrentHashMap<>();
 
   @Override
   public void login(String email, String password) {
@@ -79,9 +80,9 @@ public class AuthServiceImpl implements AuthService {
       throw new BadRequestException("Session expired. Please login again.");
     }
 
-    boolean firstTimeUser = isFirstTimeUser(email);
-    log.info("OTP verified, returning token for: {} (firstTimeUser={})", email, firstTimeUser);
-    return new AuthResponse(token, firstTimeUser);
+    UserDetails userDetails = getUserDetails(email);
+    log.info("OTP verified, returning token for: {} (firstTimeUser={})", email, userDetails.firstTimeUser());
+    return new AuthResponse(token, userDetails.firstTimeUser(), userDetails.firstName(), userDetails.lastName());
   }
 
   @Override
@@ -141,22 +142,154 @@ public class AuthServiceImpl implements AuthService {
     }
   }
 
-  private boolean isFirstTimeUser(String email) {
+  @Override
+  public void forgotPassword(String email) {
+    List<UserRepresentation> users = keycloakAdmin.realm(realm).users().searchByEmail(email, true);
+    if (users == null || users.isEmpty()) {
+      throw new BadRequestException("No account found with this email address.");
+    }
+    String otp = generateOtp();
+    resetOtpStore.put(email, new OtpEntry(otp, Instant.now().plusSeconds(OTP_EXPIRY_SECONDS)));
+    log.info("Sending password reset OTP to: {}", email);
+    sendResetPasswordOtpEmail(email, otp);
+  }
+
+  @Override
+  public void resetPassword(String email, String otp, String newPassword) {
+    OtpEntry entry = resetOtpStore.get(email);
+    if (entry == null) {
+      throw new BadRequestException("No OTP found for this email. Please request a new one.");
+    }
+    if (Instant.now().isAfter(entry.expiry())) {
+      resetOtpStore.remove(email);
+      throw new BadRequestException("OTP has expired. Please request a new one.");
+    }
+    if (!entry.otp().equals(otp)) {
+      throw new BadRequestException("Invalid OTP. Please try again.");
+    }
+    resetOtpStore.remove(email);
+
+    List<UserRepresentation> users = keycloakAdmin.realm(realm).users().searchByEmail(email, true);
+    if (users == null || users.isEmpty()) {
+      throw new BadRequestException("No account found with this email address.");
+    }
+    String keycloakUserId = users.get(0).getId();
+
     try {
-      List<UserRepresentation> users = keycloakAdmin.realm(realm).users()
-          .searchByEmail(email, true);
+      CredentialRepresentation credential = new CredentialRepresentation();
+      credential.setType(CredentialRepresentation.PASSWORD);
+      credential.setValue(newPassword);
+      credential.setTemporary(false);
+      keycloakAdmin.realm(realm).users().get(keycloakUserId).resetPassword(credential);
+      log.info("Password reset successful for: {}", email);
+    } catch (Exception e) {
+      log.error("Failed to reset password for: {}", email, e);
+      throw new BadRequestException("Failed to reset password. Please try again.");
+    }
+  }
+
+  private void sendResetPasswordOtpEmail(String email, String otp) {
+    try {
+      MimeMessage message = mailSender.createMimeMessage();
+      MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+      helper.setFrom(fromEmail);
+      helper.setTo(email);
+      helper.setSubject("Confidential | Password Reset OTP for Tvarah");
+      helper.setText(buildResetPasswordOtpEmailHtml(otp), true);
+      mailSender.send(message);
+      log.info("Password reset OTP email sent successfully to: {}", email);
+    } catch (MessagingException e) {
+      log.error("Failed to send password reset OTP email to: {}", email, e);
+      throw new BadRequestException("Failed to send OTP email");
+    }
+  }
+
+  private String buildResetPasswordOtpEmailHtml(String otp) {
+    int year = java.time.Year.now().getValue();
+    return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin:0;padding:0;background-color:#f0f2f5;font-family:Arial,sans-serif;">
+          <table width="100%%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;padding:40px 0;">
+            <tr>
+              <td align="center">
+                <table width="700" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.10);">
+                  <tr>
+                    <td style="background-color:#1a1a2e;padding:36px 48px;text-align:center;">
+                      <h1 style="color:#ffffff;margin:0;font-size:26px;letter-spacing:2px;font-weight:700;">TVARAH</h1>
+                      <p style="color:#a0a8c0;margin:6px 0 0;font-size:13px;letter-spacing:1px;">Talent Intelligence &amp; Recruitment Operations</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:40px 48px 24px;">
+                      <h2 style="color:#1a1a2e;margin:0 0 12px;font-size:22px;">Password Reset Request</h2>
+                      <p style="color:#444444;line-height:1.7;margin:0 0 24px;">
+                        We received a request to reset your password. Use the OTP below to proceed.
+                        This code is valid for <strong>5 minutes</strong> and can only be used once.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 48px 24px;text-align:center;">
+                      <table cellpadding="0" cellspacing="0" align="center"
+                             style="background-color:#f6f8fc;border-radius:8px;border:1px solid #e2e8f0;">
+                        <tr>
+                          <td style="padding:24px 48px;text-align:center;">
+                            <p style="margin:0 0 6px;color:#888888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">One-Time Password</p>
+                            <p style="margin:0;color:#1a1a2e;font-size:36px;font-weight:700;letter-spacing:10px;">%s</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 48px 40px;">
+                      <p style="color:#888888;font-size:13px;line-height:1.6;margin:16px 0 0;">
+                        If you did not request a password reset, please ignore this email. Your password will remain unchanged.
+                      </p>
+                      <p style="color:#444444;font-size:14px;margin:24px 0 0;">Regards,<br><strong>Team Tvarah</strong></p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background-color:#f6f8fc;padding:20px 48px;text-align:center;border-top:1px solid #e8e8e8;">
+                      <p style="color:#aaaaaa;font-size:12px;margin:0;">&copy; %d Tvarah. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+        """
+        .formatted(otp, year);
+  }
+
+  private UserDetails getUserDetails(String email) {
+    try {
+      List<UserRepresentation> users = keycloakAdmin.realm(realm).users().searchByEmail(email, true);
       if (users == null || users.isEmpty()) {
-        return true;
+        return new UserDetails(true, null, null);
       }
       UserRepresentation user = users.get(0);
       String firstName = user.getFirstName();
       String lastName = user.getLastName();
-      return "PENDING".equals(firstName) || "PENDING".equals(lastName)
+      boolean firstTimeUser = "PENDING".equals(firstName) || "PENDING".equals(lastName)
           || (firstName == null || firstName.isBlank()) && (lastName == null || lastName.isBlank());
+      String resolvedFirst = (firstName == null || firstName.isBlank() || "PENDING".equals(firstName)) ? null : firstName;
+      String resolvedLast = (lastName == null || lastName.isBlank() || "PENDING".equals(lastName)) ? null : lastName;
+      return new UserDetails(firstTimeUser, resolvedFirst, resolvedLast);
     } catch (Exception e) {
-      log.warn("Could not determine first-time user status for: {}", email, e);
-      return false;
+      log.warn("Could not fetch user details for: {}", email, e);
+      return new UserDetails(false, null, null);
     }
+  }
+
+  private record UserDetails(boolean firstTimeUser, String firstName, String lastName) {
   }
 
   private TokenResponse validateCredentials(String email, String password) {

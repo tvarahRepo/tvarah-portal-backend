@@ -15,4 +15,8 @@ public interface AuthService {
     void inviteUser(String email);
 
     void completeProfile(String keycloakUserId, String firstName, String lastName, String password);
+
+    void forgotPassword(String email);
+
+    void resetPassword(String email, String otp, String newPassword);
 }

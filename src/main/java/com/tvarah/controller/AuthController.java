@@ -1,11 +1,14 @@
 package com.tvarah.controller;
 
 import com.tvarah.model.request.CompleteProfileRequest;
+import com.tvarah.model.request.ForgotPasswordRequest;
 import com.tvarah.model.request.InviteRequest;
 import com.tvarah.model.request.LoginRequest;
 import com.tvarah.model.request.OtpVerifyRequest;
+import com.tvarah.model.request.ResetPasswordRequest;
 import com.tvarah.model.response.ApiResponse;
 import com.tvarah.model.response.AuthResponse;
+import com.tvarah.model.response.UserProfileResponse;
 import com.tvarah.security.SecurityUtils;
 import com.tvarah.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,13 +51,28 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
     }
 
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Forgot password", description = "Sends a password reset OTP to the provided email address if an account exists.")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success("Password reset OTP sent to your email.", null));
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Reset password", description = "Verifies the OTP sent during forgot-password and sets a new password for the account.")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Password reset successfully.", null));
+    }
+
     @PostMapping("/register-user")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Register first-time profile", description = "Registers the first name and last name for a first-time user. Requires a valid bearer token obtained after OTP verification.")
-    public ResponseEntity<ApiResponse<Void>> completeProfile(@Valid @RequestBody CompleteProfileRequest request) {
+    public ResponseEntity<ApiResponse<UserProfileResponse>> completeProfile(@Valid @RequestBody CompleteProfileRequest request) {
         String keycloakUserId = SecurityUtils.getCurrentUserId()
                 .orElseThrow(() -> new com.tvarah.exception.UnauthorizedException("User not authenticated"));
         authService.completeProfile(keycloakUserId, request.getFirstName(), request.getLastName(), request.getPassword());
-        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", null));
+        UserProfileResponse profile = new UserProfileResponse(request.getFirstName(), request.getLastName());
+        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", profile));
     }
 }
