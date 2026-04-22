@@ -63,6 +63,7 @@ public class OpenApiConfig {
 
                                                                 | Domain | Base Path | Description |
                                                                 |---|---|---|
+                                                                | **Auth Management** | `/auth` | User authentication — login, token refresh, and first-time password setup. |
                                                                 | **Client Management** | `/api/clients` | Onboard and manage hiring companies with industry, size, and recruiter assignment. |
                                                                 | **JD Management** | `/api/jds` | Create and manage structured Job Descriptions with skill arrays, experience bands, salary ranges, and round configuration. |
                                                                 | **Candidate Management** | `/api/candidates` | Maintain rich candidate profiles covering identity, work history, education, skills, documents, CTC preferences, and notice period. |

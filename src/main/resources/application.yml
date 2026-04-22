@@ -74,6 +74,7 @@ springdoc:
       client-id: ${KEYCLOAK_CLIENT_ID:tvarahbackend}
       client-secret: ${KEYCLOAK_CLIENT_SECRET:xCulSbIQd2kNaVp2yqlHnDQTQVQPTOzD}
       use-basic-authentication-with-access-code-grant: false
+    default-models-expand-depth: -1
   show-actuator: false
 
 management:
