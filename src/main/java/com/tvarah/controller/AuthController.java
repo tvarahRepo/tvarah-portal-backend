@@ -4,6 +4,7 @@ import com.tvarah.model.request.CompleteProfileRequest;
 import com.tvarah.model.request.ForgotPasswordRequest;
 import com.tvarah.model.request.InviteRequest;
 import com.tvarah.model.request.LoginRequest;
+import com.tvarah.model.request.LogoutRequest;
 import com.tvarah.model.request.OtpVerifyRequest;
 import com.tvarah.model.request.ResetPasswordRequest;
 import com.tvarah.model.response.ApiResponse;
@@ -49,6 +50,14 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
         AuthResponse authResponse = authService.verifyOtpAndGetToken(request.getEmail(), request.getOtp());
         return ResponseEntity.ok(ApiResponse.success("Login successful", authResponse));
+    }
+
+    @PostMapping("/logout")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Logout", description = "Invalidates the user's session in Keycloak by revoking the refresh token. Requires a valid bearer token.")
+    public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody LogoutRequest request) {
+        authService.logout(request.getRefreshToken());
+        return ResponseEntity.ok(ApiResponse.success("Logged out successfully.", null));
     }
 
     @PostMapping("/forgot-password")

@@ -44,6 +44,9 @@ public class AuthServiceImpl implements AuthService {
   @Value("${keycloak.token-uri}")
   private String tokenUri;
 
+  @Value("${keycloak.logout-uri}")
+  private String logoutUri;
+
   @Value("${keycloak.client-id}")
   private String clientId;
 
@@ -139,6 +142,30 @@ public class AuthServiceImpl implements AuthService {
     } catch (Exception e) {
       log.error("Failed to complete profile for Keycloak user: {}", keycloakUserId, e);
       throw new BadRequestException("Failed to complete profile");
+    }
+  }
+
+  @Override
+  public void logout(String refreshToken) {
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+    MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+    body.add("client_id", clientId);
+    body.add("client_secret", clientSecret);
+    body.add("refresh_token", refreshToken);
+
+    HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
+
+    try {
+      restTemplate.postForEntity(logoutUri, request, Void.class);
+      log.info("User session invalidated via Keycloak logout");
+    } catch (HttpClientErrorException e) {
+      log.warn("Keycloak logout returned client error: {}", e.getStatusCode());
+      throw new BadRequestException("Invalid or already expired refresh token.");
+    } catch (Exception e) {
+      log.error("Keycloak logout call failed", e);
+      throw new BadRequestException("Logout failed. Please try again.");
     }
   }
 
