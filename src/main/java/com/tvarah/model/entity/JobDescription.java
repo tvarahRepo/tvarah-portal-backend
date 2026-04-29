@@ -1,5 +1,6 @@
 package com.tvarah.model.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -93,4 +94,118 @@ public class JobDescription {
 
     @Column(name = "updated_by", length = 200)
     private String updatedBy;
+
+    // ── Section A: Location ────────────────────────────────────────────────────
+
+    @Column(name = "location_city", length = 100)
+    private String locationCity;
+
+    @Column(name = "location_country", length = 100)
+    private String locationCountry;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "locations", columnDefinition = "jsonb")
+    private JsonNode locations;
+
+    // ── Section B: Education & Certs ───────────────────────────────────────────
+
+    @Column(name = "degree_required", length = 100)
+    private String degreeRequired;
+
+    @Column(name = "field_of_study", length = 200)
+    private String fieldOfStudy;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "certifications_required", columnDefinition = "text[]")
+    private List<String> certificationsRequired;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "certifications_good_to_have", columnDefinition = "text[]")
+    private List<String> certificationsGoodToHave;
+
+    @Column(name = "notice_period", length = 50)
+    private String noticePeriod;
+
+    // ── Section C: Skills sub-categories ──────────────────────────────────────
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "skills_programming_languages", columnDefinition = "uuid[]")
+    private List<UUID> skillsProgrammingLanguages;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "skills_frameworks_libraries", columnDefinition = "uuid[]")
+    private List<UUID> skillsFrameworksLibraries;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "skills_tools", columnDefinition = "uuid[]")
+    private List<UUID> skillsTools;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "skills_databases", columnDefinition = "uuid[]")
+    private List<UUID> skillsDatabases;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "skills_cloud_infra", columnDefinition = "uuid[]")
+    private List<UUID> skillsCloudInfra;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "skills_domain_specific", columnDefinition = "uuid[]")
+    private List<UUID> skillsDomainSpecific;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "skills_behavioural", columnDefinition = "text[]")
+    private List<String> skillsBehavioural;
+
+    // ── Section D: Compensation ────────────────────────────────────────────────
+
+    @Column(name = "ctc_range", length = 100)
+    private String ctcRange;
+
+    @Column(name = "pay_frequency", length = 20)
+    private String payFrequency;
+
+    @Column(name = "equity_esop", length = 200)
+    private String equityEsop;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "benefits", columnDefinition = "text[]")
+    private List<String> benefits;
+
+    // ── Section E: Role & Org Info ─────────────────────────────────────────────
+
+    @Column(name = "department", length = 100)
+    private String department;
+
+    @Column(name = "reports_to", length = 100)
+    private String reportsTo;
+
+    @Column(name = "industry_domain", length = 200)
+    private String industryDomain;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "preferred_prior_roles", columnDefinition = "text[]")
+    private List<String> preferredPriorRoles;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "preferred_company_types", columnDefinition = "text[]")
+    private List<String> preferredCompanyTypes;
+
+    @Column(name = "role_summary", columnDefinition = "TEXT")
+    private String roleSummary;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "key_responsibilities", columnDefinition = "text[]")
+    private List<String> keyResponsibilities;
+
+    @Column(name = "hiring_deadline", length = 50)
+    private String hiringDeadline;
+
+    @Column(name = "domain_expertise", length = 200)
+    private String domainExpertise;
+
+    // ── Section F: JD Config ───────────────────────────────────────────────────
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "jd_config", columnDefinition = "jsonb")
+    private JsonNode jdConfig;
 }

@@ -64,6 +64,8 @@ app:
     login-url: ${FRONTEND_LOGIN_URL:https://tvarah-portal.azurewebsites.net/login}
   mail:
     from: ${MAIL_FROM:noreply@tvarah.com}
+  ml:
+    jd-parse-url: ${ML_JD_PARSE_URL:http://10.0.0.6:8001/jdParse}
 
 springdoc:
   api-docs:

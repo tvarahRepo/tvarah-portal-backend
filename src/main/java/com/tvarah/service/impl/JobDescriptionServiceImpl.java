@@ -1,17 +1,31 @@
 package com.tvarah.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tvarah.exception.ResourceNotFoundException;
 import com.tvarah.mapper.JobDescriptionMapper;
 import com.tvarah.model.entity.*;
+import com.tvarah.model.ml.MlJdData;
+import com.tvarah.model.ml.MlJdParseResponse;
+import com.tvarah.model.ml.MlLocation;
+import com.tvarah.model.ml.MlMandatorySkills;
+import org.springframework.web.multipart.MultipartFile;
+import com.tvarah.model.dto.JdDraftDto;
+import com.tvarah.model.request.JdConfigRequest;
+import com.tvarah.model.request.JdEnrichRequest;
+import com.tvarah.model.request.JdScorecardRequest;
 import com.tvarah.model.response.*;
 import com.tvarah.repository.*;
+import com.tvarah.security.SecurityUtils;
 import com.tvarah.service.JobDescriptionService;
+import com.tvarah.service.MlJdParseClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -22,6 +36,7 @@ import java.util.stream.Stream;
 public class JobDescriptionServiceImpl implements JobDescriptionService {
 
     private final JobDescriptionRepository jobDescriptionRepository;
+    private final JobDescriptionSummaryRepository jobDescriptionSummaryRepository;
     private final CompanyRepository companyRepository;
     private final JobTitleRepository jobTitleRepository;
     private final SkillRepository skillRepository;
@@ -32,6 +47,240 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     private final CandidateJobInterviewRepository candidateJobInterviewRepository;
     private final CandidateScoreRepository candidateScoreRepository;
     private final DesignationRepository designationRepository;
+    private final MlJdParseClient mlJdParseClient;
+    private final ObjectMapper objectMapper;
+
+    // ── Parse ──────────────────────────────────────────────────────────────────
+
+    @Override
+    public JdDraftDto parse(MultipartFile file) {
+        log.info("Parsing JD file: {}", file.getOriginalFilename());
+        MlJdParseResponse mlResponse = mlJdParseClient.parse(file);
+        MlJdData jdData = mlResponse.getJdData();
+
+        MlMandatorySkills ms = jdData.getMandatorySkills();
+
+        String locationCity = null;
+        String locationCountry = null;
+        if (jdData.getLocation() != null && !jdData.getLocation().isEmpty()) {
+            MlLocation first = jdData.getLocation().stream()
+                    .filter(l -> l.getCity() != null || l.getCountry() != null)
+                    .findFirst().orElse(jdData.getLocation().get(0));
+            locationCity = first.getCity();
+            locationCountry = first.getCountry();
+        }
+
+        JdDraftDto draft = new JdDraftDto();
+        draft.setRoleTitle(jdData.getRoleTitle());
+        draft.setJobType(jdData.getJobType());
+        draft.setJobMode(normalizeWorkMode(jdData.getWorkMode()));
+        draft.setJobLevel(jdData.getJobLevel());
+        draft.setExperienceMinYrs(jdData.getMinYearsExperience());
+        draft.setExperienceMaxYrs(jdData.getMaxYearsExperience());
+        draft.setSummaryResponsibilities(jdData.getSummaryResponsibilities());
+        draft.setLocationCity(locationCity);
+        draft.setLocationCountry(locationCountry);
+        draft.setLocations(jdData.getLocation());
+        draft.setDegreeRequired(jdData.getDegreeRequired());
+        draft.setSkillsProgrammingLanguages(ms != null ? safeList(ms.getProgrammingLanguages()) : List.of());
+        draft.setSkillsFrameworksLibraries(ms != null ? safeList(ms.getFrameworksAndLibraries()) : List.of());
+        draft.setSkillsTools(ms != null ? safeList(ms.getTools()) : List.of());
+        draft.setSkillsDatabases(ms != null ? safeList(ms.getDatabases()) : List.of());
+        draft.setSkillsCloudInfra(ms != null ? safeList(ms.getCloudAndInfra()) : List.of());
+        draft.setGoodToHaveSkills(safeList(jdData.getOptionalSkills()));
+        draft.setMlVerdict(mlResponse.getVerdict());
+        draft.setMlReflectionLoop(mlResponse.getReflectionLoop());
+        draft.setJudgeResults(objectMapper.valueToTree(mlResponse.getJudgeResults()));
+        draft.setParsedJd(objectMapper.valueToTree(mlResponse));
+
+        log.info("JD parsed: role={}, level={}, verdict={}", jdData.getRoleTitle(), jdData.getJobLevel(), mlResponse.getVerdict());
+        return draft;
+    }
+
+    // ── Create ─────────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public JobDescriptionResponse create(JdDraftDto draft) {
+        if (draft.getRoleTitle() == null || draft.getRoleTitle().isBlank()) {
+            throw new IllegalArgumentException("roleTitle is required");
+        }
+        log.info("Creating JD from reviewed draft: role={}", draft.getRoleTitle());
+
+        UUID jobTitleId = resolveJobTitle(draft.getRoleTitle(), draft.getJobLevel());
+
+        List<UUID> programmingLangIds = resolveSkillIds(safeList(draft.getSkillsProgrammingLanguages()), "Programming Language", true);
+        List<UUID> frameworkIds       = resolveSkillIds(safeList(draft.getSkillsFrameworksLibraries()),  "Framework/Library",    true);
+        List<UUID> toolIds            = resolveSkillIds(safeList(draft.getSkillsTools()),                "Tool",                 true);
+        List<UUID> dbIds              = resolveSkillIds(safeList(draft.getSkillsDatabases()),            "Database",             true);
+        List<UUID> cloudIds           = resolveSkillIds(safeList(draft.getSkillsCloudInfra()),           "Cloud/Infrastructure", true);
+        List<UUID> optionalSkillIds   = resolveSkillIds(safeList(draft.getGoodToHaveSkills()),           "General",              true);
+
+        List<UUID> requiredSkills = Stream.of(programmingLangIds, frameworkIds, toolIds, dbIds, cloudIds)
+                .flatMap(Collection::stream).distinct().collect(Collectors.toList());
+
+        String currentUser = SecurityUtils.getCurrentEmail().orElse("system");
+        Instant now = Instant.now();
+
+        JobDescription jd = new JobDescription();
+        jd.setCode(generateCode());
+        jd.setCompanyId(draft.getCompanyId());
+        jd.setJobTitleId(jobTitleId);
+        jd.setJobType(draft.getJobType());
+        jd.setJobMode(draft.getJobMode());
+        jd.setJobLevel(draft.getJobLevel());
+        jd.setJobDescriptionText(buildDescriptionText(draft.getSummaryResponsibilities(), draft.getRoleTitle()));
+        jd.setSummaryResponsibilities(draft.getSummaryResponsibilities());
+        jd.setExperienceMinYrs(draft.getExperienceMinYrs());
+        jd.setExperienceMaxYrs(draft.getExperienceMaxYrs());
+        jd.setRequiredSkills(requiredSkills);
+        jd.setGoodToHaveSkills(optionalSkillIds);
+        jd.setTotalPositions(draft.getTotalPositions() != null ? draft.getTotalPositions() : 2);
+        jd.setTotalPositionsSelected(0);
+        jd.setTotalRounds(draft.getTotalRounds() != null ? draft.getTotalRounds() : 2);
+        jd.setStatus("Draft");
+        jd.setCreatedOn(now);
+        jd.setUpdatedOn(now);
+        jd.setCreatedBy(currentUser);
+        jd.setUpdatedBy(currentUser);
+        jd.setLocationCity(draft.getLocationCity());
+        jd.setLocationCountry(draft.getLocationCountry());
+        jd.setLocations(objectMapper.valueToTree(draft.getLocations()));
+        jd.setDegreeRequired(draft.getDegreeRequired());
+        jd.setFieldOfStudy(draft.getFieldOfStudy());
+        jd.setCertificationsRequired(draft.getCertificationsRequired());
+        jd.setCertificationsGoodToHave(draft.getCertificationsGoodToHave());
+        jd.setSkillsProgrammingLanguages(programmingLangIds);
+        jd.setSkillsFrameworksLibraries(frameworkIds);
+        jd.setSkillsTools(toolIds);
+        jd.setSkillsDatabases(dbIds);
+        jd.setSkillsCloudInfra(cloudIds);
+        jd.setSkillsBehavioural(draft.getSkillsBehavioural());
+        jd.setCtcRange(draft.getCtcRange());
+        jd.setPayFrequency(draft.getPayFrequency());
+        jd.setEquityEsop(draft.getEquityEsop());
+        jd.setBenefits(draft.getBenefits());
+        jd.setDepartment(draft.getDepartment());
+        jd.setReportsTo(draft.getReportsTo());
+        jd.setIndustryDomain(draft.getIndustryDomain());
+        jd.setPreferredPriorRoles(draft.getPreferredPriorRoles());
+        jd.setPreferredCompanyTypes(draft.getPreferredCompanyTypes());
+        jd.setRoleSummary(draft.getRoleSummary());
+        jd.setKeyResponsibilities(draft.getKeyResponsibilities());
+        jd.setDomainExpertise(draft.getDomainExpertise());
+
+        jd = jobDescriptionRepository.save(jd);
+        log.info("JobDescription saved with id: {}, code: {}", jd.getId(), jd.getCode());
+
+        JobDescriptionSummary summary = new JobDescriptionSummary();
+        summary.setJobDescriptionId(jd.getId());
+        summary.setParsedJd(draft.getParsedJd());
+        summary.setMlVerdict(draft.getMlVerdict());
+        summary.setJudgeResults(draft.getJudgeResults());
+        summary.setMlReflectionLoop(draft.getMlReflectionLoop() != null
+                ? draft.getMlReflectionLoop().shortValue() : null);
+        jobDescriptionSummaryRepository.save(summary);
+
+        return buildCreateResponse(jd);
+    }
+
+    // ── Enrich ─────────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public void enrich(UUID id, JdEnrichRequest request) {
+        log.debug("Enriching JD: {}", id);
+        JobDescription jd = findJdOrThrow(id);
+
+        jd.setFieldOfStudy(request.getFieldOfStudy());
+        jd.setCertificationsRequired(request.getCertificationsRequired());
+        jd.setCertificationsGoodToHave(request.getCertificationsGoodToHave());
+        jd.setCtcRange(request.getCtcRange());
+        jd.setPayFrequency(request.getPayFrequency());
+        jd.setEquityEsop(request.getEquityEsop());
+        jd.setBenefits(request.getBenefits());
+        jd.setDepartment(request.getDepartment());
+        jd.setReportsTo(request.getReportsTo());
+        jd.setIndustryDomain(request.getIndustryDomain());
+        jd.setPreferredPriorRoles(request.getPreferredPriorRoles());
+        jd.setPreferredCompanyTypes(request.getPreferredCompanyTypes());
+        jd.setRoleSummary(request.getRoleSummary());
+        jd.setKeyResponsibilities(request.getKeyResponsibilities());
+        jd.setDomainExpertise(request.getDomainExpertise());
+        jd.setSkillsBehavioural(request.getSkillsBehavioural());
+        jd.setUpdatedOn(Instant.now());
+        jd.setUpdatedBy(SecurityUtils.getCurrentEmail().orElse("system"));
+
+        jobDescriptionRepository.save(jd);
+
+        if (request.getEnrichedJd() != null) {
+            JobDescriptionSummary summary = jobDescriptionSummaryRepository
+                    .findByJobDescriptionId(id)
+                    .orElseGet(() -> { JobDescriptionSummary s = new JobDescriptionSummary(); s.setJobDescriptionId(id); return s; });
+            summary.setEnrichedJd(request.getEnrichedJd());
+            jobDescriptionSummaryRepository.save(summary);
+        }
+
+        log.info("JD {} enriched successfully", id);
+    }
+
+    // ── Configure ──────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public void configure(UUID id, JdConfigRequest request) {
+        log.debug("Configuring JD: {}", id);
+        JobDescription jd = findJdOrThrow(id);
+
+        jd.setJdConfig(request.getJdConfig());
+        if (request.getSkillsDomainSpecific() != null) {
+            jd.setSkillsDomainSpecific(request.getSkillsDomainSpecific());
+        }
+        jd.setUpdatedOn(Instant.now());
+        jd.setUpdatedBy(SecurityUtils.getCurrentEmail().orElse("system"));
+
+        jobDescriptionRepository.save(jd);
+
+        if (request.getMustHaveSkills() != null) {
+            JobDescriptionSummary summary = jobDescriptionSummaryRepository
+                    .findByJobDescriptionId(id)
+                    .orElseGet(() -> { JobDescriptionSummary s = new JobDescriptionSummary(); s.setJobDescriptionId(id); return s; });
+            summary.setNonNegotiableRules(objectMapper.valueToTree(
+                    Map.of("mustHaveSkills", request.getMustHaveSkills(),
+                           "useConfigMustHave", Boolean.TRUE.equals(request.getUseConfigMustHave()))));
+            jobDescriptionSummaryRepository.save(summary);
+        }
+
+        log.info("JD {} configured successfully", id);
+    }
+
+    // ── Scorecard ──────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public void updateScorecard(UUID id, JdScorecardRequest request) {
+        log.debug("Updating scorecard for JD: {}", id);
+        findJdOrThrow(id);
+
+        JobDescriptionSummary summary = jobDescriptionSummaryRepository
+                .findByJobDescriptionId(id)
+                .orElseGet(() -> { JobDescriptionSummary s = new JobDescriptionSummary(); s.setJobDescriptionId(id); return s; });
+
+        summary.setScorecardRoleClarity(request.getScorecardRoleClarity());
+        summary.setScorecardTechSpecificity(request.getScorecardTechSpecificity());
+        summary.setConsultingVsProduct(request.getConsultingVsProduct());
+        summary.setExperienceInflation(request.getExperienceInflation());
+        summary.setMissingScreening(request.getMissingScreening());
+        summary.setCompensationSignal(request.getCompensationSignal());
+        summary.setMlVerdict(request.getMlVerdict());
+        summary.setJudgeResults(request.getJudgeResults());
+        summary.setMlReflectionLoop(request.getMlReflectionLoop());
+
+        jobDescriptionSummaryRepository.save(summary);
+        log.info("Scorecard updated for JD: {}", id);
+    }
+
+    // ── Existing methods ───────────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
@@ -40,30 +289,20 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
         List<JobDescription> jds = jobDescriptionRepository.findAll();
         if (jds.isEmpty()) return List.of();
 
-        // Collect IDs needed for lookup
-        Set<UUID> companyIds = jds.stream()
-                .map(JobDescription::getCompanyId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
-        Set<UUID> jobTitleIds = jds.stream()
-                .map(JobDescription::getJobTitleId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
+        Set<UUID> companyIds = jds.stream().map(JobDescription::getCompanyId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<UUID> jobTitleIds = jds.stream().map(JobDescription::getJobTitleId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
         Set<UUID> skillIds = jds.stream()
                 .flatMap(jd -> Stream.concat(
                         jd.getRequiredSkills() != null ? jd.getRequiredSkills().stream() : Stream.empty(),
                         jd.getGoodToHaveSkills() != null ? jd.getGoodToHaveSkills().stream() : Stream.empty()))
                 .collect(Collectors.toSet());
 
-        // Batch fetch — one query each
         Map<UUID, String> companyNames = companyRepository.findAllById(companyIds).stream()
                 .collect(Collectors.toMap(c -> c.getId(), c -> c.getName()));
-
         Map<UUID, String> jobTitleNames = jobTitleRepository.findAllById(jobTitleIds).stream()
                 .collect(Collectors.toMap(jt -> jt.getId(), jt -> jt.getName()));
-
         Map<UUID, String> skillNames = skillRepository.findAllById(skillIds).stream()
                 .collect(Collectors.toMap(s -> s.getId(), s -> s.getName()));
 
@@ -74,7 +313,6 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     @Transactional(readOnly = true)
     public List<JdCandidateResponse> getCandidatesForJd(UUID jdId) {
         log.debug("Fetching candidates for JD: {}", jdId);
-
         List<CandidateJob> candidateJobs = candidateJobRepository.findByJobId(jdId);
         if (candidateJobs.isEmpty()) return List.of();
 
@@ -83,15 +321,12 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
 
         Map<UUID, Candidate> candidateMap = candidateRepository.findAllById(candidateIds).stream()
                 .collect(Collectors.toMap(Candidate::getId, c -> c));
-
         Map<UUID, CandidateJobEvaluation> evaluationMap = candidateJobEvaluationRepository
                 .findByCandidateJobIdIn(candidateJobIds).stream()
                 .collect(Collectors.toMap(CandidateJobEvaluation::getCandidateJobId, e -> e));
-
         Map<UUID, List<CandidateJobInterview>> interviewMap = candidateJobInterviewRepository
                 .findByCandidateJobIdInOrderByRoundNumberAsc(candidateJobIds).stream()
                 .collect(Collectors.groupingBy(CandidateJobInterview::getCandidateJobId));
-
         Map<UUID, CandidateScore> scoreMap = candidateScoreRepository
                 .findByCandidateIdIn(candidateIds).stream()
                 .collect(Collectors.toMap(CandidateScore::getCandidateId, s -> s));
@@ -107,17 +342,15 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
                 .collect(Collectors.toMap(c -> c.getId(), c -> c.getName()));
 
         return candidateJobs.stream()
-                .map(cj -> buildResponse(
+                .map(cj -> buildCandidateResponse(
                         candidateMap.get(cj.getCandidateId()),
                         evaluationMap.get(cj.getId()),
                         interviewMap.getOrDefault(cj.getId(), List.of()),
                         scoreMap.get(cj.getCandidateId()),
-                        designationNames,
-                        companyNames))
+                        designationNames, companyNames))
                 .sorted(Comparator.comparing(
                         r -> r.getEvaluation() != null && r.getEvaluation().getJdOverallMatchScore() != null
-                                ? r.getEvaluation().getJdOverallMatchScore()
-                                : BigDecimal.ZERO,
+                                ? r.getEvaluation().getJdOverallMatchScore() : BigDecimal.ZERO,
                         Comparator.reverseOrder()))
                 .collect(Collectors.toList());
     }
@@ -126,16 +359,134 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     @Transactional
     public void cancelJobDescription(UUID id) {
         log.debug("Cancelling job description: {}", id);
-        JobDescription jd = jobDescriptionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Job description not found: " + id));
+        JobDescription jd = findJdOrThrow(id);
         jd.setStatus("Cancelled");
         jobDescriptionRepository.save(jd);
         log.info("Job description {} marked as Cancelled", id);
     }
 
-    private JdCandidateResponse buildResponse(Candidate candidate, CandidateJobEvaluation evaluation,
-                                               List<CandidateJobInterview> interviews, CandidateScore score,
-                                               Map<UUID, String> designationNames, Map<UUID, String> companyNames) {
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private JobDescription findJdOrThrow(UUID id) {
+        return jobDescriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Job description not found: " + id));
+    }
+
+    private UUID resolveJobTitle(String title, String jobLevel) {
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("Job title is required from ML response");
+        }
+        String trimmed = title.trim();
+        return jobTitleRepository.findByNameIgnoreCase(trimmed)
+                .orElseGet(() -> {
+                    log.info("Auto-creating job title: {}", trimmed);
+                    String dept = inferDepartment(trimmed);
+                    String seniority = normalizeJobLevel(jobLevel);
+                    return jobTitleRepository.save(new JobTitle(trimmed, dept, seniority));
+                })
+                .getId();
+    }
+
+    private List<UUID> resolveSkillIds(List<String> names, String category, boolean isTechnical) {
+        if (names == null || names.isEmpty()) return List.of();
+
+        List<String> trimmed = names.stream()
+                .filter(n -> n != null && !n.isBlank())
+                .map(String::trim)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, UUID> existing = skillRepository.findByNameIgnoreCaseIn(trimmed).stream()
+                .collect(Collectors.toMap(s -> s.getName().toLowerCase(), Skill::getId));
+
+        List<UUID> result = new ArrayList<>();
+        for (String name : trimmed) {
+            UUID id = existing.get(name.toLowerCase());
+            if (id == null) {
+                log.info("Auto-creating skill: {} [{}]", name, category);
+                String dept = inferDepartment(name);
+                id = skillRepository.save(new Skill(name, category, dept, isTechnical)).getId();
+            }
+            result.add(id);
+        }
+        return result;
+    }
+
+    private String inferDepartment(String text) {
+        if (text == null) return "Engineering";
+        String lower = text.toLowerCase();
+        if (lower.matches(".*(data|analytics|etl|pipeline|spark|databricks|hadoop|hive|glue|airflow|kafka|bigdata|big data).*"))
+            return "Data Engineering";
+        if (lower.matches(".*(frontend|react|angular|vue|css|html|ui|ux|flutter|swift|ios|android|mobile).*"))
+            return "Frontend Engineering";
+        if (lower.matches(".*(backend|java|spring|node|python|go|rust|ruby|api|microservice|sql|postgresql|mongodb).*"))
+            return "Backend Engineering";
+        return "Engineering";
+    }
+
+    private String normalizeJobLevel(String jobLevel) {
+        if (jobLevel == null) return null;
+        return switch (jobLevel.trim().toLowerCase()) {
+            case "junior", "entry" -> "Junior";
+            case "mid", "middle"   -> "Mid";
+            case "senior"          -> "Senior";
+            case "lead"            -> "Lead";
+            case "manager"         -> "Manager";
+            default                -> null;
+        };
+    }
+
+    private String normalizeWorkMode(String workMode) {
+        if (workMode == null) return null;
+        return switch (workMode.trim().toLowerCase()) {
+            case "in office", "office", "onsite", "on-site", "on site" -> "Onsite";
+            case "wfh", "work from home", "remote"                     -> "Remote";
+            case "hybrid"                                               -> "Hybrid";
+            default -> null;
+        };
+    }
+
+    private String generateCode() {
+        long count = jobDescriptionRepository.count();
+        return String.format("JD-%05d", count + 1);
+    }
+
+    private String buildDescriptionText(List<String> responsibilities, String roleTitle) {
+        if (responsibilities != null && !responsibilities.isEmpty()) {
+            return String.join("\n", responsibilities);
+        }
+        return roleTitle != null ? roleTitle : "Parsed from document";
+    }
+
+    private <T> List<T> safeList(List<T> list) {
+        return list != null ? list : List.of();
+    }
+
+    private JobDescriptionResponse buildCreateResponse(JobDescription jd) {
+        return JobDescriptionResponse.builder()
+                .id(jd.getId())
+                .code(jd.getCode())
+                .jobType(jd.getJobType())
+                .jobMode(jd.getJobMode())
+                .jobLevel(jd.getJobLevel())
+                .jobDescriptionText(jd.getJobDescriptionText())
+                .summaryResponsibilities(jd.getSummaryResponsibilities())
+                .experienceMinYrs(jd.getExperienceMinYrs())
+                .experienceMaxYrs(jd.getExperienceMaxYrs())
+                .totalPositions(jd.getTotalPositions())
+                .totalPositionsSelected(jd.getTotalPositionsSelected())
+                .totalRounds(jd.getTotalRounds())
+                .status(jd.getStatus())
+                .createdOn(jd.getCreatedOn())
+                .updatedOn(jd.getUpdatedOn())
+                .createdBy(jd.getCreatedBy())
+                .updatedBy(jd.getUpdatedBy())
+                .build();
+    }
+
+    private JdCandidateResponse buildCandidateResponse(Candidate candidate, CandidateJobEvaluation evaluation,
+                                                        List<CandidateJobInterview> interviews, CandidateScore score,
+                                                        Map<UUID, String> designationNames, Map<UUID, String> companyNames) {
         CandidateEvaluationResponse evalResponse = evaluation == null ? null : CandidateEvaluationResponse.builder()
                 .id(evaluation.getId())
                 .jdOverallMatchScore(evaluation.getJdOverallMatchScore())
@@ -149,20 +500,12 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
 
         List<CandidateInterviewResponse> interviewResponses = interviews.stream()
                 .map(i -> CandidateInterviewResponse.builder()
-                        .id(i.getId())
-                        .roundNumber(i.getRoundNumber())
-                        .interviewerName(i.getInterviewerName())
-                        .interviewerEmail(i.getInterviewerEmail())
-                        .interviewerType(i.getInterviewerType())
-                        .scheduledOn(i.getScheduledOn())
-                        .mode(i.getMode())
-                        .status(i.getStatus())
-                        .questions(i.getQuestions())
-                        .focusAreas(i.getFocusAreas())
-                        .feedback(i.getFeedback())
-                        .score(i.getScore())
-                        .maxScore(i.getMaxScore())
-                        .build())
+                        .id(i.getId()).roundNumber(i.getRoundNumber())
+                        .interviewerName(i.getInterviewerName()).interviewerEmail(i.getInterviewerEmail())
+                        .interviewerType(i.getInterviewerType()).scheduledOn(i.getScheduledOn())
+                        .mode(i.getMode()).status(i.getStatus()).questions(i.getQuestions())
+                        .focusAreas(i.getFocusAreas()).feedback(i.getFeedback())
+                        .score(i.getScore()).maxScore(i.getMaxScore()).build())
                 .collect(Collectors.toList());
 
         return JdCandidateResponse.builder()
