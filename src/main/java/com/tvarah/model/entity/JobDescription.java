@@ -26,7 +26,7 @@ public class JobDescription {
     @Column(name = "code", nullable = false, unique = true, length = 10)
     private String code;
 
-    @Column(name = "company_id")
+    @Column(name = "company_id", nullable = false)
     private UUID companyId;
 
     @Column(name = "job_title_id", nullable = false)

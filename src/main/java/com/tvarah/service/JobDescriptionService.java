@@ -1,6 +1,5 @@
 package com.tvarah.service;
 
-import com.tvarah.model.dto.JdDraftDto;
 import com.tvarah.model.request.JdConfigRequest;
 import com.tvarah.model.request.JdEnrichRequest;
 import com.tvarah.model.request.JdScorecardRequest;
@@ -19,9 +18,7 @@ public interface JobDescriptionService {
 
     void cancelJobDescription(UUID id);
 
-    JdDraftDto parse(MultipartFile file);
-
-    JobDescriptionResponse create(JdDraftDto draft);
+    JobDescriptionResponse create(MultipartFile file, UUID companyId, Integer totalPositions, Integer totalRounds);
 
     void enrich(UUID id, JdEnrichRequest request);
 

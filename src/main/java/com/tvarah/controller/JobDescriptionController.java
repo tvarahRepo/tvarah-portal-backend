@@ -1,9 +1,5 @@
 package com.tvarah.controller;
 
-import com.tvarah.model.dto.JdDraftDto;
-import com.tvarah.model.request.JdConfigRequest;
-import com.tvarah.model.request.JdEnrichRequest;
-import com.tvarah.model.request.JdScorecardRequest;
 import com.tvarah.model.response.ApiResponse;
 import com.tvarah.model.response.JdCandidateResponse;
 import com.tvarah.model.response.JobDescriptionResponse;
@@ -28,68 +24,20 @@ public class JobDescriptionController {
 
     private final JobDescriptionService jobDescriptionService;
 
-    @PostMapping(value = "/parse", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
-            summary = "Parse a JD document via ML",
-            description = "Accepts a JD file (PDF/DOCX), sends it to the ML API, maps the response to the DB schema shape, and returns it for UI review. Nothing is saved to the database."
-    )
-    public ResponseEntity<ApiResponse<JdDraftDto>> parseJobDescription(
-            @RequestPart("file") MultipartFile file) {
-
-        JdDraftDto draft = jobDescriptionService.parse(file);
-        return ResponseEntity.ok(ApiResponse.success("JD parsed successfully", draft));
-    }
-
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(
-            summary = "Create a job description from reviewed draft",
-            description = "Accepts the DB-schema-aligned draft (returned by /parse and optionally modified by the UI) and persists it as a new job description in Draft status."
+            summary = "Parse and create a job description from a document",
+            description = "Sends the uploaded JD file to the ML parse API, validates the extracted fields against the DB schema's non-null constraints, and saves the record on success. If any mandatory field could not be extracted, returns 400 with the list of missing field names instead of saving."
     )
     public ResponseEntity<ApiResponse<JobDescriptionResponse>> createJobDescription(
-            @RequestBody JdDraftDto draft) {
+            @RequestPart("file") MultipartFile file,
+            @RequestParam UUID companyId,
+            @RequestParam(required = false) Integer totalPositions,
+            @RequestParam(required = false) Integer totalRounds) {
 
-        JobDescriptionResponse response = jobDescriptionService.create(draft);
+        JobDescriptionResponse response = jobDescriptionService.create(file, companyId, totalPositions, totalRounds);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Job description created successfully", response));
-    }
-
-    @PatchMapping("/{id}/enrich")
-    @Operation(
-            summary = "Enrich a job description",
-            description = "Applies OpenAI-enriched fields (department, role summary, compensation, certifications, etc.) to an existing job description."
-    )
-    public ResponseEntity<ApiResponse<Void>> enrichJobDescription(
-            @PathVariable UUID id,
-            @RequestBody JdEnrichRequest request) {
-
-        jobDescriptionService.enrich(id, request);
-        return ResponseEntity.ok(ApiResponse.success("Job description enriched successfully", null));
-    }
-
-    @PatchMapping("/{id}/config")
-    @Operation(
-            summary = "Save JD scoring configuration",
-            description = "Stores the JD config (weights, thresholds, filters, skill groups) and optional domain-specific skills set by the recruiter."
-    )
-    public ResponseEntity<ApiResponse<Void>> configureJobDescription(
-            @PathVariable UUID id,
-            @RequestBody JdConfigRequest request) {
-
-        jobDescriptionService.configure(id, request);
-        return ResponseEntity.ok(ApiResponse.success("Job description config saved successfully", null));
-    }
-
-    @PatchMapping("/{id}/scorecard")
-    @Operation(
-            summary = "Update JD scorecard and ML verdict",
-            description = "Persists the ML quality scorecard (role clarity, tech specificity, etc.) and verdict for a job description."
-    )
-    public ResponseEntity<ApiResponse<Void>> updateScorecard(
-            @PathVariable UUID id,
-            @RequestBody JdScorecardRequest request) {
-
-        jobDescriptionService.updateScorecard(id, request);
-        return ResponseEntity.ok(ApiResponse.success("Scorecard updated successfully", null));
     }
 
     @GetMapping

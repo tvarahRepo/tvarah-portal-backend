@@ -1,6 +1,8 @@
 package com.tvarah.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tvarah.exception.BadRequestException;
+import com.tvarah.exception.JdMissingFieldsException;
 import com.tvarah.exception.ResourceNotFoundException;
 import com.tvarah.mapper.JobDescriptionMapper;
 import com.tvarah.model.entity.*;
@@ -8,8 +10,6 @@ import com.tvarah.model.ml.MlJdData;
 import com.tvarah.model.ml.MlJdParseResponse;
 import com.tvarah.model.ml.MlLocation;
 import com.tvarah.model.ml.MlMandatorySkills;
-import org.springframework.web.multipart.MultipartFile;
-import com.tvarah.model.dto.JdDraftDto;
 import com.tvarah.model.request.JdConfigRequest;
 import com.tvarah.model.request.JdEnrichRequest;
 import com.tvarah.model.request.JdScorecardRequest;
@@ -50,135 +50,96 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     private final MlJdParseClient mlJdParseClient;
     private final ObjectMapper objectMapper;
 
-    // ── Parse ──────────────────────────────────────────────────────────────────
+    // ── Create (parse → validate → save) ──────────────────────────────────────
 
     @Override
-    public JdDraftDto parse(MultipartFile file) {
-        log.info("Parsing JD file: {}", file.getOriginalFilename());
+    @Transactional
+    public JobDescriptionResponse create(MultipartFile file, UUID companyId,
+                                         Integer totalPositions, Integer totalRounds) {
+        if (companyId == null) {
+            throw new BadRequestException("companyId is required");
+        }
+        log.info("Creating JD from file: {}", file.getOriginalFilename());
+
+        // 1. Call ML
         MlJdParseResponse mlResponse = mlJdParseClient.parse(file);
         MlJdData jdData = mlResponse.getJdData();
 
+        // 2. Validate ML response against DB schema required fields
+        validateRequiredFields(jdData);
+
+        // 3. Map ML → entity fields
         MlMandatorySkills ms = jdData.getMandatorySkills();
 
         String locationCity = null;
         String locationCountry = null;
+        com.fasterxml.jackson.databind.JsonNode locationsJson = null;
         if (jdData.getLocation() != null && !jdData.getLocation().isEmpty()) {
             MlLocation first = jdData.getLocation().stream()
                     .filter(l -> l.getCity() != null || l.getCountry() != null)
                     .findFirst().orElse(jdData.getLocation().get(0));
             locationCity = first.getCity();
             locationCountry = first.getCountry();
+            locationsJson = objectMapper.valueToTree(jdData.getLocation());
         }
 
-        JdDraftDto draft = new JdDraftDto();
-        draft.setRoleTitle(jdData.getRoleTitle());
-        draft.setJobType(jdData.getJobType());
-        draft.setJobMode(normalizeWorkMode(jdData.getWorkMode()));
-        draft.setJobLevel(jdData.getJobLevel());
-        draft.setExperienceMinYrs(jdData.getMinYearsExperience());
-        draft.setExperienceMaxYrs(jdData.getMaxYearsExperience());
-        draft.setSummaryResponsibilities(jdData.getSummaryResponsibilities());
-        draft.setLocationCity(locationCity);
-        draft.setLocationCountry(locationCountry);
-        draft.setLocations(jdData.getLocation());
-        draft.setDegreeRequired(jdData.getDegreeRequired());
-        draft.setSkillsProgrammingLanguages(ms != null ? safeList(ms.getProgrammingLanguages()) : List.of());
-        draft.setSkillsFrameworksLibraries(ms != null ? safeList(ms.getFrameworksAndLibraries()) : List.of());
-        draft.setSkillsTools(ms != null ? safeList(ms.getTools()) : List.of());
-        draft.setSkillsDatabases(ms != null ? safeList(ms.getDatabases()) : List.of());
-        draft.setSkillsCloudInfra(ms != null ? safeList(ms.getCloudAndInfra()) : List.of());
-        draft.setGoodToHaveSkills(safeList(jdData.getOptionalSkills()));
-        draft.setMlVerdict(mlResponse.getVerdict());
-        draft.setMlReflectionLoop(mlResponse.getReflectionLoop());
-        draft.setJudgeResults(objectMapper.valueToTree(mlResponse.getJudgeResults()));
-        draft.setParsedJd(objectMapper.valueToTree(mlResponse));
+        UUID jobTitleId = resolveJobTitle(jdData.getRoleTitle(), jdData.getJobLevel());
 
-        log.info("JD parsed: role={}, level={}, verdict={}", jdData.getRoleTitle(), jdData.getJobLevel(), mlResponse.getVerdict());
-        return draft;
-    }
-
-    // ── Create ─────────────────────────────────────────────────────────────────
-
-    @Override
-    @Transactional
-    public JobDescriptionResponse create(JdDraftDto draft) {
-        if (draft.getRoleTitle() == null || draft.getRoleTitle().isBlank()) {
-            throw new IllegalArgumentException("roleTitle is required");
-        }
-        log.info("Creating JD from reviewed draft: role={}", draft.getRoleTitle());
-
-        UUID jobTitleId = resolveJobTitle(draft.getRoleTitle(), draft.getJobLevel());
-
-        List<UUID> programmingLangIds = resolveSkillIds(safeList(draft.getSkillsProgrammingLanguages()), "Programming Language", true);
-        List<UUID> frameworkIds       = resolveSkillIds(safeList(draft.getSkillsFrameworksLibraries()),  "Framework/Library",    true);
-        List<UUID> toolIds            = resolveSkillIds(safeList(draft.getSkillsTools()),                "Tool",                 true);
-        List<UUID> dbIds              = resolveSkillIds(safeList(draft.getSkillsDatabases()),            "Database",             true);
-        List<UUID> cloudIds           = resolveSkillIds(safeList(draft.getSkillsCloudInfra()),           "Cloud/Infrastructure", true);
-        List<UUID> optionalSkillIds   = resolveSkillIds(safeList(draft.getGoodToHaveSkills()),           "General",              true);
+        List<UUID> programmingLangIds = resolveSkillIds(safeList(ms != null ? ms.getProgrammingLanguages() : null), "Programming Language", true);
+        List<UUID> frameworkIds       = resolveSkillIds(safeList(ms != null ? ms.getFrameworksAndLibraries() : null), "Framework/Library",  true);
+        List<UUID> toolIds            = resolveSkillIds(safeList(ms != null ? ms.getTools() : null),                  "Tool",               true);
+        List<UUID> dbIds              = resolveSkillIds(safeList(ms != null ? ms.getDatabases() : null),              "Database",           true);
+        List<UUID> cloudIds           = resolveSkillIds(safeList(ms != null ? ms.getCloudAndInfra() : null),          "Cloud/Infrastructure", true);
+        List<UUID> optionalSkillIds   = resolveSkillIds(safeList(jdData.getOptionalSkills()),                         "General",            true);
 
         List<UUID> requiredSkills = Stream.of(programmingLangIds, frameworkIds, toolIds, dbIds, cloudIds)
                 .flatMap(Collection::stream).distinct().collect(Collectors.toList());
 
+        // 4. Persist
         String currentUser = SecurityUtils.getCurrentEmail().orElse("system");
         Instant now = Instant.now();
 
         JobDescription jd = new JobDescription();
         jd.setCode(generateCode());
-        jd.setCompanyId(draft.getCompanyId());
+        jd.setCompanyId(companyId);
         jd.setJobTitleId(jobTitleId);
-        jd.setJobType(draft.getJobType());
-        jd.setJobMode(draft.getJobMode());
-        jd.setJobLevel(draft.getJobLevel());
-        jd.setJobDescriptionText(buildDescriptionText(draft.getSummaryResponsibilities(), draft.getRoleTitle()));
-        jd.setSummaryResponsibilities(draft.getSummaryResponsibilities());
-        jd.setExperienceMinYrs(draft.getExperienceMinYrs());
-        jd.setExperienceMaxYrs(draft.getExperienceMaxYrs());
+        jd.setJobType(jdData.getJobType());
+        jd.setJobMode(normalizeWorkMode(jdData.getWorkMode()));
+        jd.setJobLevel(jdData.getJobLevel());
+        jd.setJobDescriptionText(buildDescriptionText(jdData.getSummaryResponsibilities(), jdData.getRoleTitle()));
+        jd.setSummaryResponsibilities(jdData.getSummaryResponsibilities());
+        jd.setExperienceMinYrs(jdData.getMinYearsExperience());
+        jd.setExperienceMaxYrs(jdData.getMaxYearsExperience());
         jd.setRequiredSkills(requiredSkills);
         jd.setGoodToHaveSkills(optionalSkillIds);
-        jd.setTotalPositions(draft.getTotalPositions() != null ? draft.getTotalPositions() : 2);
+        jd.setTotalPositions(totalPositions != null ? totalPositions : 2);
         jd.setTotalPositionsSelected(0);
-        jd.setTotalRounds(draft.getTotalRounds() != null ? draft.getTotalRounds() : 2);
+        jd.setTotalRounds(totalRounds != null ? totalRounds : 2);
         jd.setStatus("Draft");
         jd.setCreatedOn(now);
         jd.setUpdatedOn(now);
         jd.setCreatedBy(currentUser);
         jd.setUpdatedBy(currentUser);
-        jd.setLocationCity(draft.getLocationCity());
-        jd.setLocationCountry(draft.getLocationCountry());
-        jd.setLocations(objectMapper.valueToTree(draft.getLocations()));
-        jd.setDegreeRequired(draft.getDegreeRequired());
-        jd.setFieldOfStudy(draft.getFieldOfStudy());
-        jd.setCertificationsRequired(draft.getCertificationsRequired());
-        jd.setCertificationsGoodToHave(draft.getCertificationsGoodToHave());
+        jd.setLocationCity(locationCity);
+        jd.setLocationCountry(locationCountry);
+        jd.setLocations(locationsJson);
+        jd.setDegreeRequired(jdData.getDegreeRequired());
         jd.setSkillsProgrammingLanguages(programmingLangIds);
         jd.setSkillsFrameworksLibraries(frameworkIds);
         jd.setSkillsTools(toolIds);
         jd.setSkillsDatabases(dbIds);
         jd.setSkillsCloudInfra(cloudIds);
-        jd.setSkillsBehavioural(draft.getSkillsBehavioural());
-        jd.setCtcRange(draft.getCtcRange());
-        jd.setPayFrequency(draft.getPayFrequency());
-        jd.setEquityEsop(draft.getEquityEsop());
-        jd.setBenefits(draft.getBenefits());
-        jd.setDepartment(draft.getDepartment());
-        jd.setReportsTo(draft.getReportsTo());
-        jd.setIndustryDomain(draft.getIndustryDomain());
-        jd.setPreferredPriorRoles(draft.getPreferredPriorRoles());
-        jd.setPreferredCompanyTypes(draft.getPreferredCompanyTypes());
-        jd.setRoleSummary(draft.getRoleSummary());
-        jd.setKeyResponsibilities(draft.getKeyResponsibilities());
-        jd.setDomainExpertise(draft.getDomainExpertise());
 
         jd = jobDescriptionRepository.save(jd);
         log.info("JobDescription saved with id: {}, code: {}", jd.getId(), jd.getCode());
 
         JobDescriptionSummary summary = new JobDescriptionSummary();
         summary.setJobDescriptionId(jd.getId());
-        summary.setParsedJd(draft.getParsedJd());
-        summary.setMlVerdict(draft.getMlVerdict());
-        summary.setJudgeResults(draft.getJudgeResults());
-        summary.setMlReflectionLoop(draft.getMlReflectionLoop() != null
-                ? draft.getMlReflectionLoop().shortValue() : null);
+        summary.setParsedJd(objectMapper.valueToTree(mlResponse));
+        summary.setMlVerdict(mlResponse.getVerdict());
+        summary.setJudgeResults(objectMapper.valueToTree(mlResponse.getJudgeResults()));
+        summary.setMlReflectionLoop(mlResponse.getReflectionLoop() != null
+                ? mlResponse.getReflectionLoop().shortValue() : null);
         jobDescriptionSummaryRepository.save(summary);
 
         return buildCreateResponse(jd);
@@ -366,6 +327,43 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private void validateRequiredFields(MlJdData jdData) {
+        List<String> missing = new ArrayList<>();
+
+        // job_title_id NOT NULL — requires role_title
+        if (jdData.getRoleTitle() == null || jdData.getRoleTitle().isBlank())
+            missing.add("role_title");
+
+        // job_description_text NOT NULL — requires summary_responsibilities
+        if (jdData.getSummaryResponsibilities() == null || jdData.getSummaryResponsibilities().isEmpty())
+            missing.add("summary_responsibilities");
+
+        // job_type maps to job_type column
+        if (jdData.getJobType() == null || jdData.getJobType().isBlank())
+            missing.add("job_type");
+
+        // job_level maps to job_level column
+        if (jdData.getJobLevel() == null || jdData.getJobLevel().isBlank())
+            missing.add("job_level");
+
+        // mandatory skills — at least one skill in any category
+        MlMandatorySkills ms = jdData.getMandatorySkills();
+        boolean hasAnySkill = ms != null && (
+                !safeList(ms.getProgrammingLanguages()).isEmpty() ||
+                !safeList(ms.getFrameworksAndLibraries()).isEmpty() ||
+                !safeList(ms.getTools()).isEmpty() ||
+                !safeList(ms.getDatabases()).isEmpty() ||
+                !safeList(ms.getCloudAndInfra()).isEmpty()
+        );
+        if (!hasAnySkill)
+            missing.add("mandatory_skills");
+
+        if (!missing.isEmpty()) {
+            log.warn("JD validation failed - missing fields: {}", missing);
+            throw new JdMissingFieldsException(missing);
+        }
+    }
 
     private JobDescription findJdOrThrow(UUID id) {
         return jobDescriptionRepository.findById(id)

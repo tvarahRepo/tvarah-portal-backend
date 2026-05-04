@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -34,6 +35,14 @@ public class GlobalExceptionHandler {
         log.warn("Bad request: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(JdMissingFieldsException.class)
+    public ResponseEntity<ApiResponse<Map<String, List<String>>>> handleJdMissingFields(
+            JdMissingFieldsException ex) {
+        log.warn("JD validation failed - missing fields: {}", ex.getMissingFields());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("JD is missing required fields", Map.of("missingFields", ex.getMissingFields())));
     }
 
     @ExceptionHandler(UnauthorizedException.class)
