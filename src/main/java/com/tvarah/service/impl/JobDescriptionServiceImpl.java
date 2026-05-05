@@ -105,7 +105,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
         jd.setJobTitleId(jobTitleId);
         jd.setJobType(jdData.getJobType());
         jd.setJobMode(normalizeWorkMode(jdData.getWorkMode()));
-        jd.setJobLevel(jdData.getJobLevel());
+        jd.setJobLevel(normalizeJobLevel(jdData.getJobLevel()));
         jd.setJobDescriptionText(buildDescriptionText(jdData.getSummaryResponsibilities(), jdData.getRoleTitle()));
         jd.setSummaryResponsibilities(jdData.getSummaryResponsibilities());
         jd.setExperienceMinYrs(jdData.getMinYearsExperience());
@@ -461,9 +461,29 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     }
 
     private JobDescriptionResponse buildCreateResponse(JobDescription jd) {
+        String companyName = companyRepository.findById(jd.getCompanyId())
+                .map(c -> c.getName()).orElse(null);
+        String jobTitleName = jobTitleRepository.findById(jd.getJobTitleId())
+                .map(t -> t.getName()).orElse(null);
+
+        List<UUID> allSkillIds = Stream.of(
+                safeList(jd.getRequiredSkills()),
+                safeList(jd.getGoodToHaveSkills())
+        ).flatMap(Collection::stream).distinct().collect(Collectors.toList());
+
+        Map<UUID, String> skillNames = skillRepository.findAllById(allSkillIds).stream()
+                .collect(Collectors.toMap(s -> s.getId(), s -> s.getName()));
+
+        List<String> requiredSkillNames = safeList(jd.getRequiredSkills()).stream()
+                .map(id -> skillNames.getOrDefault(id, id.toString())).collect(Collectors.toList());
+        List<String> goodToHaveSkillNames = safeList(jd.getGoodToHaveSkills()).stream()
+                .map(id -> skillNames.getOrDefault(id, id.toString())).collect(Collectors.toList());
+
         return JobDescriptionResponse.builder()
                 .id(jd.getId())
                 .code(jd.getCode())
+                .company(companyName)
+                .jobTitle(jobTitleName)
                 .jobType(jd.getJobType())
                 .jobMode(jd.getJobMode())
                 .jobLevel(jd.getJobLevel())
@@ -471,6 +491,8 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
                 .summaryResponsibilities(jd.getSummaryResponsibilities())
                 .experienceMinYrs(jd.getExperienceMinYrs())
                 .experienceMaxYrs(jd.getExperienceMaxYrs())
+                .requiredSkills(requiredSkillNames)
+                .goodToHaveSkills(goodToHaveSkillNames)
                 .totalPositions(jd.getTotalPositions())
                 .totalPositionsSelected(jd.getTotalPositionsSelected())
                 .totalRounds(jd.getTotalRounds())

@@ -49,7 +49,7 @@ public class MlJdData {
     private String degreeRequired;
 
     @JsonProperty("team_size")
-    private Integer teamSize;
+    private String teamSize;
 
     @JsonProperty("industry_domains")
     private List<String> industryDomains;

@@ -24,6 +24,8 @@ public class CompanyServiceImpl implements CompanyService {
     public CompanyResponse create(CompanyRequest request) {
         Company company = Company.builder()
                 .name(request.getName())
+                .reviewCount(0)
+                .mcaVerified(request.getMcaVerified() != null ? request.getMcaVerified() : false)
                 .nameAlias(request.getNameAlias())
                 .type(request.getType())
                 .industry(request.getIndustry())
@@ -33,7 +35,6 @@ public class CompanyServiceImpl implements CompanyService {
                 .foundedYear(request.getFoundedYear())
                 .noOfEmployees(request.getNoOfEmployees())
                 .avgRating(request.getAvgRating())
-                .mcaVerified(request.getMcaVerified() != null ? request.getMcaVerified() : false)
                 .status(request.getStatus())
                 .sector(request.getSector())
                 .companyDomain(request.getCompanyDomain())
