@@ -99,5 +99,7 @@
     <include file="db/changelog/changes/034-candidate-score-category-wise.sql"/>
     <include file="db/changelog/changes/035-user-target.sql"/>
     <include file="db/changelog/changes/036-jd-column-fixes.sql"/>
+    <include file="db/changelog/changes/037-user-keycloak-id.sql"/>
+    <include file="db/changelog/changes/038-user-add-fields.sql"/>
 
 </databaseChangeLog>

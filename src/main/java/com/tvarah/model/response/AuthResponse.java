@@ -8,7 +8,4 @@ import lombok.Getter;
 public class AuthResponse {
 
     private TokenResponse token;
-    private boolean firstTimeUser;
-    private String firstName;
-    private String lastName;
 }

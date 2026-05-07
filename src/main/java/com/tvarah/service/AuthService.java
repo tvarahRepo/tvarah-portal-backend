@@ -12,13 +12,9 @@ public interface AuthService {
 
     void verifyOtp(String email, String otp);
 
-    void inviteUser(String email);
+    void addUser(String firstName, String lastName, String email, String phoneNumber, String location, String department, String role);
 
-    void completeProfile(String keycloakUserId, String firstName, String lastName, String password);
-
-    void forgotPassword(String email);
-
-    void resetPassword(String email, String otp, String newPassword);
+    void resetPassword(String email);
 
     void logout(String refreshToken);
 }

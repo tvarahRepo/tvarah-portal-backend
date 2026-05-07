@@ -34,7 +34,6 @@ public class SecurityConfig {
                         "/actuator/info",
                         "/auth/login",
                         "/auth/verify-otp",
-                        "/auth/forgot-password",
                         "/auth/reset-password"
         };
 
