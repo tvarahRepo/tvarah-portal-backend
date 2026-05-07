@@ -8,7 +8,6 @@ import com.tvarah.model.response.UserResponse;
 import com.tvarah.security.SecurityUtils;
 import com.tvarah.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -53,7 +52,6 @@ public class UserController {
     // ── User Management ──────────────────────────────────────────────────────
 
     @GetMapping("/me")
-    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Get current user", description = "Returns the authenticated user's profile from the database, including their assigned roles.")
     public ResponseEntity<ApiResponse<UserResponse>> getMe() {
         String keycloakUserId = SecurityUtils.getCurrentUserId()
@@ -62,7 +60,6 @@ public class UserController {
     }
 
     @PatchMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Update profile", description = "Updates the authenticated user's profile details and/or profile picture. All fields are optional.")
     public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
             @RequestPart(value = "data", required = false) com.tvarah.model.request.UpdateProfileRequest data,
