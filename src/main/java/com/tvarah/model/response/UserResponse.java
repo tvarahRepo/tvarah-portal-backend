@@ -15,6 +15,7 @@ public class UserResponse {
     private String phoneNumber;
     private String department;
     private String location;
+    private String avatarUrl;
     private String role;
     private UserStatus status;
 }

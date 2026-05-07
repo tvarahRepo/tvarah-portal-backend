@@ -2,6 +2,8 @@ package com.tvarah.model.entity;
 
 import com.tvarah.model.enums.UserStatus;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -36,6 +38,13 @@ public class User {
 
     @Column(name = "last_name", length = 150)
     private String lastName;
+
+    @JdbcTypeCode(SqlTypes.BINARY)
+    @Column(name = "avatar")
+    private byte[] avatar;
+
+    @Column(name = "avatar_content_type", length = 100)
+    private String avatarContentType;
 
     @Column(name = "phone_number", length = 20)
     private String phoneNumber;

@@ -13,8 +13,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -57,6 +59,29 @@ public class UserController {
         String keycloakUserId = SecurityUtils.getCurrentUserId()
                 .orElseThrow(() -> new UnauthorizedException("User not authenticated"));
         return ResponseEntity.ok(ApiResponse.success(userService.getMe(keycloakUserId)));
+    }
+
+    @PatchMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Update profile", description = "Updates the authenticated user's profile details and/or profile picture. All fields are optional.")
+    public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+            @RequestPart(value = "data", required = false) com.tvarah.model.request.UpdateProfileRequest data,
+            @RequestParam(value = "avatar", required = false) MultipartFile avatar) {
+        String keycloakUserId = SecurityUtils.getCurrentUserId()
+                .orElseThrow(() -> new UnauthorizedException("User not authenticated"));
+        if (data == null) data = new com.tvarah.model.request.UpdateProfileRequest();
+        UserResponse updated = userService.updateProfile(keycloakUserId, data, avatar);
+        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updated));
+    }
+
+    @GetMapping("/{keycloakUserId}/avatar")
+    @Operation(summary = "Get profile picture", description = "Streams the user's profile picture. This endpoint is publicly accessible.")
+    public ResponseEntity<byte[]> getAvatar(@PathVariable String keycloakUserId) {
+        byte[] image = userService.getAvatar(keycloakUserId);
+        String contentType = userService.getAvatarContentType(keycloakUserId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(image);
     }
 
     @GetMapping

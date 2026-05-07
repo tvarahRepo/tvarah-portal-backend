@@ -3,6 +3,8 @@ package com.tvarah.service;
 import com.tvarah.model.request.RoleRequest;
 import com.tvarah.model.response.RoleResponse;
 import com.tvarah.model.response.UserResponse;
+import com.tvarah.model.request.UpdateProfileRequest;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -31,4 +33,10 @@ public interface UserService {
     void updateUserStatus(String keycloakUserId, boolean enabled);
 
     void deleteUser(String keycloakUserId);
+
+    UserResponse updateProfile(String keycloakUserId, UpdateProfileRequest request, MultipartFile avatar);
+
+    byte[] getAvatar(String keycloakUserId);
+
+    String getAvatarContentType(String keycloakUserId);
 }

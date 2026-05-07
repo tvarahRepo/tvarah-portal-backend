@@ -101,5 +101,6 @@
     <include file="db/changelog/changes/036-jd-column-fixes.sql"/>
     <include file="db/changelog/changes/037-user-keycloak-id.sql"/>
     <include file="db/changelog/changes/038-user-add-fields.sql"/>
+    <include file="db/changelog/changes/039-user-avatar.sql"/>
 
 </databaseChangeLog>
