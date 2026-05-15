@@ -181,6 +181,55 @@ public class AuthServiceImpl implements AuthService {
     }
   }
 
+  @Override
+  public void changePassword(String email, String currentPassword, String newPassword) {
+    try {
+      validateCredentials(email, currentPassword);
+    } catch (UnauthorizedException e) {
+      throw new BadRequestException("Current password is incorrect.");
+    }
+
+    com.tvarah.model.response.UserResponse user = userService.getUserByEmail(email);
+
+    CredentialRepresentation credential = new CredentialRepresentation();
+    credential.setType(CredentialRepresentation.PASSWORD);
+    credential.setValue(newPassword);
+    credential.setTemporary(false);
+    try {
+      keycloakAdmin.realm(realm).users().get(user.getKeycloakUserId()).resetPassword(credential);
+      log.info("Password changed for user: {}", email);
+    } catch (Exception e) {
+      log.error("Failed to change password for: {}", email, e);
+      throw new BadRequestException("Failed to change password. Please try again.");
+    }
+  }
+
+  @Override
+  public AuthResponse refresh(String refreshToken) {
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+    MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+    body.add("grant_type", "refresh_token");
+    body.add("client_id", clientId);
+    body.add("client_secret", clientSecret);
+    body.add("refresh_token", refreshToken);
+
+    HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
+
+    try {
+      ResponseEntity<TokenResponse> response = restTemplate.postForEntity(tokenUri, request, TokenResponse.class);
+      log.info("Token refreshed successfully");
+      return new AuthResponse(response.getBody());
+    } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.BadRequest e) {
+      log.warn("Refresh token invalid or expired");
+      throw new UnauthorizedException("Session expired. Please login again.");
+    } catch (Exception e) {
+      log.error("Token refresh failed", e);
+      throw new BadRequestException("Authentication service unavailable");
+    }
+  }
+
   private TokenResponse validateCredentials(String email, String password) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);

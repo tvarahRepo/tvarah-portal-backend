@@ -5,6 +5,9 @@ import com.tvarah.model.request.ResetPasswordRequest;
 import com.tvarah.model.request.LoginRequest;
 import com.tvarah.model.request.LogoutRequest;
 import com.tvarah.model.request.OtpVerifyRequest;
+import com.tvarah.model.request.RefreshTokenRequest;
+import com.tvarah.model.request.ChangePasswordRequest;
+import com.tvarah.security.SecurityUtils;
 import com.tvarah.model.response.ApiResponse;
 import com.tvarah.model.response.AuthResponse;
 import com.tvarah.service.AuthService;
@@ -62,6 +65,23 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody LogoutRequest request) {
         authService.logout(request.getRefreshToken());
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully.", null));
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Refresh token", description = "Uses a valid refresh token to obtain a new access token from Keycloak.")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        AuthResponse authResponse = authService.refresh(request.getRefreshToken());
+        return ResponseEntity.ok(ApiResponse.success("Token refreshed", authResponse));
+    }
+
+    @PostMapping("/change-password")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Change password", description = "Validates the current password then updates it in Keycloak.")
+    public ResponseEntity<ApiResponse<Void>> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        String email = SecurityUtils.getCurrentEmail()
+                .orElseThrow(() -> new com.tvarah.exception.UnauthorizedException("User not authenticated"));
+        authService.changePassword(email, request.getCurrentPassword(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully.", null));
     }
 
 }
