@@ -2,6 +2,7 @@ package com.tvarah.controller;
 
 import com.tvarah.exception.UnauthorizedException;
 import com.tvarah.model.request.RoleRequest;
+import com.tvarah.model.request.UpdateUserRequest;
 import com.tvarah.model.response.ApiResponse;
 import com.tvarah.model.response.RoleResponse;
 import com.tvarah.model.response.UserResponse;
@@ -110,6 +111,14 @@ public class UserController {
         userService.updateUserStatus(userId, enabled);
         String msg = enabled ? "User enabled successfully" : "User disabled successfully";
         return ResponseEntity.ok(ApiResponse.success(msg, null));
+    }
+
+    @PatchMapping("/{userId}")
+    @Operation(summary = "Update a user", description = "Updates a user's profile fields and role. All fields are optional.")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable String userId,
+                                                                @RequestBody UpdateUserRequest request) {
+        UserResponse updated = userService.updateUser(userId, request);
+        return ResponseEntity.ok(ApiResponse.success("User updated successfully", updated));
     }
 
     @DeleteMapping("/{userId}")

@@ -5,6 +5,7 @@ import com.tvarah.exception.ResourceNotFoundException;
 import com.tvarah.model.entity.User;
 import com.tvarah.model.enums.UserStatus;
 import com.tvarah.model.request.RoleRequest;
+import com.tvarah.model.request.UpdateUserRequest;
 import com.tvarah.model.response.RoleResponse;
 import com.tvarah.model.response.UserResponse;
 import com.tvarah.repository.UserRepository;
@@ -226,6 +227,33 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserResponse updateUser(String keycloakUserId, UpdateUserRequest request) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + keycloakUserId));
+
+        if (request.getFirstName() != null)   user.setFirstName(request.getFirstName());
+        if (request.getLastName() != null)    user.setLastName(request.getLastName());
+        if (request.getPhoneNumber() != null) user.setPhoneNumber(request.getPhoneNumber());
+        if (request.getLocation() != null)    user.setLocation(request.getLocation());
+        if (request.getDepartment() != null)  user.setDepartment(request.getDepartment());
+
+        if (request.getRole() != null && !request.getRole().equals(user.getRole())) {
+            String oldRole = user.getRole();
+            if (oldRole != null) {
+                try { removeRole(keycloakUserId, oldRole); } catch (Exception e) {
+                    log.warn("Could not remove old role '{}' from user '{}': {}", oldRole, keycloakUserId, e.getMessage());
+                }
+            }
+            assignRole(keycloakUserId, request.getRole());
+            user.setRole(request.getRole());
+        }
+
+        userRepository.save(user);
+        log.info("Admin updated user: {}", keycloakUserId);
+        return toUserResponse(user);
+    }
+
+    @Override
     public byte[] getAvatar(String keycloakUserId) {
         User user = userRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + keycloakUserId));
@@ -255,6 +283,8 @@ public class UserServiceImpl implements UserService {
                 .role(user.getRole())
                 .status(user.getStatus())
                 .avatarUrl(user.getAvatar() != null ? baseUrl + "/users/" + user.getKeycloakUserId() + "/avatar" : null)
+                .createdOn(user.getCreatedOn())
+                .updatedOn(user.getUpdatedOn())
                 .build();
     }
 

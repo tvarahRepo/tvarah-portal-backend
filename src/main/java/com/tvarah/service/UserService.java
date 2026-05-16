@@ -1,6 +1,7 @@
 package com.tvarah.service;
 
 import com.tvarah.model.request.RoleRequest;
+import com.tvarah.model.request.UpdateUserRequest;
 import com.tvarah.model.response.RoleResponse;
 import com.tvarah.model.response.UserResponse;
 import com.tvarah.model.request.UpdateProfileRequest;
@@ -35,6 +36,8 @@ public interface UserService {
     void deleteUser(String keycloakUserId);
 
     UserResponse updateProfile(String keycloakUserId, UpdateProfileRequest request, MultipartFile avatar);
+
+    UserResponse updateUser(String keycloakUserId, UpdateUserRequest request);
 
     byte[] getAvatar(String keycloakUserId);
 

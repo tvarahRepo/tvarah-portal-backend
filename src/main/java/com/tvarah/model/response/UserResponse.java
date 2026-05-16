@@ -4,6 +4,8 @@ import com.tvarah.model.enums.UserStatus;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.Instant;
+
 @Data
 @Builder
 public class UserResponse {
@@ -18,4 +20,6 @@ public class UserResponse {
     private String avatarUrl;
     private String role;
     private UserStatus status;
+    private Instant createdOn;
+    private Instant updatedOn;
 }
