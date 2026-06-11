@@ -1,12 +1,14 @@
 package com.tvarah.controller;
 
 import com.tvarah.exception.UnauthorizedException;
+import com.tvarah.model.request.AddUserRequest;
 import com.tvarah.model.request.RoleRequest;
 import com.tvarah.model.request.UpdateUserRequest;
 import com.tvarah.model.response.ApiResponse;
 import com.tvarah.model.response.RoleResponse;
 import com.tvarah.model.response.UserResponse;
 import com.tvarah.security.SecurityUtils;
+import com.tvarah.service.AuthService;
 import com.tvarah.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,10 +17,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/users")
@@ -27,16 +31,19 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final AuthService authService;
 
     // ── Role Management ──────────────────────────────────────────────────────
 
     @GetMapping("/roles")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
     @Operation(summary = "Get all roles", description = "Returns all realm roles defined in Keycloak, excluding internal system roles.")
     public ResponseEntity<ApiResponse<List<RoleResponse>>> getAllRoles() {
         return ResponseEntity.ok(ApiResponse.success(userService.getAllRoles()));
     }
 
     @PostMapping("/roles")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
     @Operation(summary = "Create a role", description = "Creates a new realm role in Keycloak.")
     public ResponseEntity<ApiResponse<RoleResponse>> createRole(@Valid @RequestBody RoleRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -44,6 +51,7 @@ public class UserController {
     }
 
     @DeleteMapping("/roles/{roleName}")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
     @Operation(summary = "Delete a role", description = "Deletes a realm role from Keycloak by name.")
     public ResponseEntity<ApiResponse<Void>> deleteRole(@PathVariable String roleName) {
         userService.deleteRole(roleName);
@@ -83,12 +91,30 @@ public class UserController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all users", description = "Returns all Keycloak users along with their assigned realm roles.")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
+    @Operation(summary = "Get all users", description = "Returns all platform users, excluding Draft users.")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
         return ResponseEntity.ok(ApiResponse.success(userService.getAllUsers()));
     }
 
+    @PostMapping("/draft")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
+    @Operation(summary = "Create a draft user", description = "Creates a user record in the DB only — no Keycloak account, no email. Status is Draft.")
+    public ResponseEntity<ApiResponse<UserResponse>> createDraftUser(@Valid @RequestBody AddUserRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Draft user created", userService.createDraftUser(request)));
+    }
+
+    @PostMapping("/{userId}/invite")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
+    @Operation(summary = "Invite a draft user", description = "Creates a Keycloak account for a Draft user, sends an invite email, and sets status to Pending.")
+    public ResponseEntity<ApiResponse<Void>> inviteUser(@PathVariable UUID userId) {
+        authService.inviteUser(userId);
+        return ResponseEntity.ok(ApiResponse.success("Invite sent successfully", null));
+    }
+
     @PostMapping("/{userId}/roles/{roleName}")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
     @Operation(summary = "Assign role to user", description = "Assigns a realm role to an existing Keycloak user.")
     public ResponseEntity<ApiResponse<Void>> assignRole(@PathVariable String userId,
                                                         @PathVariable String roleName) {
@@ -97,6 +123,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}/roles/{roleName}")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
     @Operation(summary = "Remove role from user", description = "Removes a realm role from a Keycloak user.")
     public ResponseEntity<ApiResponse<Void>> removeRole(@PathVariable String userId,
                                                         @PathVariable String roleName) {
@@ -105,6 +132,7 @@ public class UserController {
     }
 
     @PatchMapping("/{userId}/status")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
     @Operation(summary = "Enable or disable a user", description = "Toggles the enabled state of a Keycloak user.")
     public ResponseEntity<ApiResponse<Void>> updateUserStatus(@PathVariable String userId,
                                                               @RequestParam boolean enabled) {
@@ -114,6 +142,7 @@ public class UserController {
     }
 
     @PatchMapping("/{userId}")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
     @Operation(summary = "Update a user", description = "Updates a user's profile fields and role. All fields are optional.")
     public ResponseEntity<ApiResponse<UserResponse>> updateUser(@PathVariable String userId,
                                                                 @RequestBody UpdateUserRequest request) {
@@ -122,6 +151,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}")
+    @PreAuthorize("hasRole('SITE_ADMIN')")
     @Operation(summary = "Delete a user", description = "Permanently deletes a user from Keycloak.")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable String userId) {
         userService.deleteUser(userId);

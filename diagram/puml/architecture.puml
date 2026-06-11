@@ -2,55 +2,129 @@
 
 skinparam packageStyle rectangle
 skinparam linetype ortho
+skinparam ArrowThickness 1
 
-package "Client" {
-    [Company User / HR]
+package "Clients" {
+    [Internal Users\n(Admin / Recruiter / Panel\n/ Management / Sales & BD)] #LightYellow
+    [External Users\n(Client-TA Head / Associate\n/ Hiring Manager / Director)] #LightYellow
 }
 
 package "Infrastructure" {
     [Keycloak\n(Auth Server)] #LightBlue
-    database "PostgreSQL" #LightGreen
+    database "PostgreSQL\n(10.0.0.6:5432)" #LightGreen
+    [SendGrid\n(SMTP / Email)] #LightGray
+    [ML Microservice\n(JD Parsing)] #LightPink
 }
 
-package "Tvarah Backend JAVA Microservice" {
+package "Tvarah Portal Frontend\n(Next.js 16 · App Router · Turbopack)" {
+    [Auth Pages\n(Login · OTP · Reset Password)]
+    [Dashboard Pages\n(Jobs · Candidates · Clients\nUsers · Tasks · Pipeline · Panel)]
+    [API Proxy\n(/api/v1/** → backend\n/backend/** → backend)]
+}
+
+package "Tvarah Portal Backend\n(Spring Boot 3.2 · Java 17)" {
+
     package "controller" {
-        [REST Controllers]
+        [AuthController\n/auth/**]
+        [UserController\n/users/**]
+        [ClientController\n/clients/**]
+        [CompanyController\n/companies/**]
+        [JobDescriptionController\n/job-descriptions/**]
+        [CandidateController\n/candidates/**]
     }
+
     package "security" {
-        [SecurityConfig]
-        [JwtAuthConverter]
-        [SecurityUtils]
+        [SecurityConfig\n(CORS · Stateless · OAuth2)]
+        [JwtAuthConverter\n(realm + resource roles)]
+        [SecurityUtils\n(getCurrentUserId etc.)]
     }
+
     package "service" {
-        [Service Interfaces]
-        [Service Implementations]
+        [AuthService\n(login · OTP · invite · refresh)]
+        [UserService\n(CRUD · draft · roles)]
+        [CompanyService\n(CRUD · logo · findByCurrentUser)]
+        [JobDescriptionService\n(CRUD · ML parse · enrich)]
+        [CandidateService\n(CRUD · scoring)]
+        [MlJdParseClient\n(HTTP → ML service)]
     }
+
     package "repository" {
-        [JPA Repositories]
+        [UserRepository]
+        [CompanyRepository]
+        [CompanyUserRepository]
+        [JobDescriptionRepository]
+        [CandidateRepository]
+        [... other JPA Repos]
     }
+
     package "model" {
-        [Entities / Requests / Responses]
+        [Entities\n(User · Company · CompanyUser\nJobDescription · Candidate · ...)]
+        [Enums\n(UserRole · UserStatus)]
+        [Requests / Responses\n(ApiResponse<T>)]
     }
-    package "mapper" {
-        [MapStruct Mappers]
-    }
+
     package "exception" {
         [GlobalExceptionHandler]
-        [Custom Exceptions]
+        [ResourceNotFoundException\nBadRequestException\nUnauthorizedException]
     }
+
     package "config" {
-        [DatabaseConfig]
-        [OpenApiConfig]
+        [KeycloakAdminConfig]
+        [OpenApiConfig\n(SpringDoc)]
     }
 }
 
-[Company User / HR] --> [REST Controllers] : HTTP + JWT
-[REST Controllers] --> [SecurityConfig] : secured by
-[SecurityConfig] --> [Keycloak\n(Auth Server)] : JWKS validation
-[REST Controllers] --> [Service Interfaces]
-[Service Interfaces] --> [Service Implementations]
-[Service Implementations] --> [JPA Repositories]
-[JPA Repositories] --> PostgreSQL
-[Service Implementations] --> [MapStruct Mappers]
+' ── Client → Frontend ──────────────────────────────────────────
+[Internal Users\n(Admin / Recruiter / Panel\n/ Management / Sales & BD)] --> [Dashboard Pages\n(Jobs · Candidates · Clients\nUsers · Tasks · Pipeline · Panel)] : HTTPS
+[External Users\n(Client-TA Head / Associate\n/ Hiring Manager / Director)] --> [Auth Pages\n(Login · OTP · Reset Password)] : HTTPS
+
+' ── Frontend internal ──────────────────────────────────────────
+[Auth Pages\n(Login · OTP · Reset Password)] --> [API Proxy\n(/api/v1/** → backend\n/backend/** → backend)]
+[Dashboard Pages\n(Jobs · Candidates · Clients\nUsers · Tasks · Pipeline · Panel)] --> [API Proxy\n(/api/v1/** → backend\n/backend/** → backend)]
+
+' ── Frontend → Backend ─────────────────────────────────────────
+[API Proxy\n(/api/v1/** → backend\n/backend/** → backend)] --> [AuthController\n/auth/**]         : HTTP + Bearer JWT
+[API Proxy\n(/api/v1/** → backend\n/backend/** → backend)] --> [UserController\n/users/**]        : HTTP + Bearer JWT
+[API Proxy\n(/api/v1/** → backend\n/backend/** → backend)] --> [ClientController\n/clients/**]    : HTTP + Bearer JWT
+[API Proxy\n(/api/v1/** → backend\n/backend/** → backend)] --> [CompanyController\n/companies/**] : HTTP + Bearer JWT
+[API Proxy\n(/api/v1/** → backend\n/backend/** → backend)] --> [JobDescriptionController\n/job-descriptions/**] : HTTP + Bearer JWT
+[API Proxy\n(/api/v1/** → backend\n/backend/** → backend)] --> [CandidateController\n/candidates/**] : HTTP + Bearer JWT
+
+' ── Backend security ───────────────────────────────────────────
+[AuthController\n/auth/**]      --> [SecurityConfig\n(CORS · Stateless · OAuth2)] : secured by
+[SecurityConfig\n(CORS · Stateless · OAuth2)] --> [Keycloak\n(Auth Server)] : JWKS validation
+[SecurityConfig\n(CORS · Stateless · OAuth2)] --> [JwtAuthConverter\n(realm + resource roles)]
+
+' ── Controllers → Services ─────────────────────────────────────
+[AuthController\n/auth/**]       --> [AuthService\n(login · OTP · invite · refresh)]
+[UserController\n/users/**]      --> [UserService\n(CRUD · draft · roles)]
+[UserController\n/users/**]      --> [AuthService\n(login · OTP · invite · refresh)]
+[ClientController\n/clients/**]  --> [CompanyService\n(CRUD · logo · findByCurrentUser)]
+[CompanyController\n/companies/**] --> [CompanyService\n(CRUD · logo · findByCurrentUser)]
+[JobDescriptionController\n/job-descriptions/**] --> [JobDescriptionService\n(CRUD · ML parse · enrich)]
+[CandidateController\n/candidates/**] --> [CandidateService\n(CRUD · scoring)]
+
+' ── Services → Repos / External ────────────────────────────────
+[AuthService\n(login · OTP · invite · refresh)]  --> [Keycloak\n(Auth Server)]      : user CRUD · role assign
+[AuthService\n(login · OTP · invite · refresh)]  --> [SendGrid\n(SMTP / Email)]     : OTP · invite · reset
+[UserService\n(CRUD · draft · roles)]            --> [UserRepository]
+[UserService\n(CRUD · draft · roles)]            --> [Keycloak\n(Auth Server)]      : role management
+[CompanyService\n(CRUD · logo · findByCurrentUser)] --> [CompanyRepository]
+[CompanyService\n(CRUD · logo · findByCurrentUser)] --> [CompanyUserRepository]
+[CompanyService\n(CRUD · logo · findByCurrentUser)] --> [UserRepository]
+[JobDescriptionService\n(CRUD · ML parse · enrich)] --> [JobDescriptionRepository]
+[JobDescriptionService\n(CRUD · ML parse · enrich)] --> [MlJdParseClient\n(HTTP → ML service)]
+[CandidateService\n(CRUD · scoring)]            --> [CandidateRepository]
+
+' ── Repos → DB ─────────────────────────────────────────────────
+[UserRepository]            --> PostgreSQL\n(10.0.0.6:5432)
+[CompanyRepository]         --> PostgreSQL\n(10.0.0.6:5432)
+[CompanyUserRepository]     --> PostgreSQL\n(10.0.0.6:5432)
+[JobDescriptionRepository]  --> PostgreSQL\n(10.0.0.6:5432)
+[CandidateRepository]       --> PostgreSQL\n(10.0.0.6:5432)
+[... other JPA Repos]       --> PostgreSQL\n(10.0.0.6:5432)
+
+' ── ML ─────────────────────────────────────────────────────────
+[MlJdParseClient\n(HTTP → ML service)] --> [ML Microservice\n(JD Parsing)] : HTTP POST /jdParse
 
 @enduml

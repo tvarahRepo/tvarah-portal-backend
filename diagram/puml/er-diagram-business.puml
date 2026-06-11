@@ -99,25 +99,27 @@ together {
 
 together {
     entity "company" as company #FDEBD0 {
-        id                  : uuid
+        id                        : uuid
         --
-        name                : string
-        name_alias          : string
-        type                : string
-        industry            : string
-        headquarter_city    : string
-        headquarter_state   : string
-        headquarter_country : string
-        founded_year        : number
-        no_of_employees     : number
-        review_count        : number
-        avg_rating          : number
-        mca_verified             : boolean
-        status                   : string
-        sector                   : string
-        company_domain           : string
+        name                      : string
+        name_alias                : string
+        type                      : string
+        industry                  : string
+        headquarter_city          : string
+        headquarter_state         : string
+        headquarter_country       : string
+        founded_year              : number
+        no_of_employees           : number
+        review_count              : number
+        avg_rating                : number
+        mca_verified              : boolean
+        status                    : string
+        sector                    : string
+        company_domain            : string
         candidate_personal_domain : string
-        domain_source            : string
+        domain_source             : string
+        logo                      : bytes
+        logo_content_type         : string
     }
 
     entity "job_title" as job_title #D5F5E3 {
@@ -159,7 +161,7 @@ together {
 }
 
 ' ─────────────────────────────────────────────────────────────
-' ROW 3 — Status tables for Core Business
+' ROW 3 — Status / Role Reference tables
 ' ─────────────────────────────────────────────────────────────
 
 together {
@@ -167,6 +169,24 @@ together {
         name        : string  <<PK>>
         --
         description : string
+        ..
+        ' Values: Draft, Pending, Active,
+        ' Inactive, Suspended
+    }
+
+    entity "user_role" as user_role #FEF9E7 {
+        name        : string  <<PK>>
+        --
+        type        : string
+        description : string
+        ..
+        ' INTERNAL: Admin, Management,
+        '   Account Manager, Recruiter,
+        '   Panel, Sales and BD, Candidate
+        ' EXTERNAL: Client-TA Head,
+        '   Client-TA Associate,
+        '   Client-Hiring Manager,
+        '   Client-Director
     }
 
     entity "job_status" as job_status #FEF9E7 {
@@ -188,15 +208,23 @@ together {
 
 together {
     entity "user" as user #D6EAF8 {
-        id               : uuid
+        id                  : uuid
         --
-        first_name       : string
-        last_name        : string
-        email            : string
-        role             : string
-        status           : string
-        created_on       : timestamp
-        updated_on       : timestamp
+        keycloak_user_id    : string
+        email               : string
+        first_name          : string
+        last_name           : string
+        phone_number        : string
+        department          : string
+        location            : string
+        role                : string
+        status              : string
+        avatar              : bytes
+        avatar_content_type : string
+        created_on          : timestamp
+        updated_on          : timestamp
+        ..
+        ' Draft users: no keycloak_user_id
     }
 
     entity "user_target" as user_target #D6EAF8 {
@@ -254,13 +282,24 @@ together {
     }
 
     entity "job_description_summary" as job_description_summary #D6EAF8 {
-        id                   : uuid
+        id                       : uuid
         --
-        job_description_id   : uuid
-        parsed_jd            : jsonb
-        enriched_jd          : jsonb
-        jd_score             : number
-        non_negotiable_rules : jsonb
+        job_description_id       : uuid
+        parsed_jd                : jsonb
+        enriched_jd              : jsonb
+        jd_score                 : number
+        non_negotiable_rules     : jsonb
+        ..
+        scorecard_role_clarity   : number
+        scorecard_tech_specificity : number
+        consulting_vs_product    : string
+        experience_inflation     : string
+        missing_screening        : list
+        compensation_signal      : string
+        ..
+        ml_verdict               : string
+        judge_results            : jsonb
+        ml_reflection_loop       : number
     }
 }
 
@@ -346,7 +385,7 @@ together {
         candidate_id               : uuid
         current_location           : string
         primary_preferred_location : string
-        preferred_locations        : string
+        preferred_locations        : list
         can_relocate               : boolean
         preferred_job_title_id     : uuid
         current_ctc                : number
@@ -357,8 +396,6 @@ together {
         work_authorization         : boolean
         created_on                 : timestamp
         updated_on                 : timestamp
-        created_by                 : string
-        updated_by                 : string
     }
 
     entity "candidate_notice_period" as candidate_notice_period #F4ECF7 {
@@ -373,8 +410,6 @@ together {
         last_working_date      : timestamp
         created_on             : timestamp
         updated_on             : timestamp
-        created_by             : string
-        updated_by             : string
     }
 }
 
@@ -395,7 +430,6 @@ together {
         drop_flag_message : string
         fraud_risk        : string
         fraud_status      : boolean
-
         created_on        : timestamp
         updated_on        : timestamp
     }
@@ -415,19 +449,19 @@ together {
         candidate_id              : uuid
         ..
         skill_depth               : string
-        skill_depth_tags          : string
+        skill_depth_tags          : list
         ..
         experience_quality        : string
-        experience_quality_tags   : string
+        experience_quality_tags   : list
         ..
         academic_background       : string
-        academic_background_tags  : string
+        academic_background_tags  : list
         ..
         domain_depth              : string
-        domain_depth_tags         : string
+        domain_depth_tags         : list
         parsed_resume             : jsonb
-        weakness                  : string
-        strength                  : string
+        weakness                  : list
+        strength                  : list
     }
 
     entity "candidate_intelligence_insight" as candidate_intelligence_insight #FDEDEC {
@@ -587,8 +621,8 @@ together {
         mode              : string
         status            : string
         ..
-        questions         : string
-        focus_areas       : string
+        questions         : list
+        focus_areas       : list
         ..
         feedback          : string
         score             : number
@@ -618,20 +652,22 @@ department ||--o{ job_title   : "department"
 department ||--o{ designation : "department"
 department ||--o{ skill       : "department"
 
-' Row 3 → Row 4  (status → entity)
+' Row 3 → Row 4
 user_status    ||--o{ user            : "status"
+user_role      ||--o{ user            : "role (informational)"
+user_role      ||--o{ company_user    : "role (informational)"
 user           ||--o{ user_target     : "user_id"
 job_status     ||--o{ job_description : "status"
 company_status ||--o{ company         : "status"
 
 ' Row 2/4 → Row 4
-company   ||--o{ company_user    : "company_id"
-user      ||--o{ company_user    : "user_id"
-company   ||--o{ job_description              : "company_id"
-job_title ||--o{ job_description              : "title"
+company         ||--o{ company_user           : "company_id"
+user            ||--o{ company_user           : "user_id"
+company         ||--o{ job_description        : "company_id"
+job_title       ||--o{ job_description        : "title"
 job_description ||--|| job_description_summary : "job_description_id"
 
-' Row 5 → Row 6  (status → candidate)
+' Row 5 → Row 6
 candidate_status ||--o{ candidate : "status"
 
 ' Row 2 → Row 6
@@ -639,7 +675,7 @@ company     ||--o{ candidate : "current_company_id"
 job_title   ||--o{ candidate : "job_title_id"
 designation ||--o{ candidate : "designation_id"
 
-' Row 6 → Row 7  (candidate → extensions)
+' Row 6 → Row 7
 candidate ||--|| candidate_preference    : "preferences"
 candidate ||--|| candidate_notice_period : "notice period"
 
@@ -647,40 +683,40 @@ candidate ||--|| candidate_notice_period : "notice period"
 job_title ||--o{ candidate_preference    : "preferred title"
 company   ||--o{ candidate_notice_period : "company_id"
 
-' Row 6 → Row 8  (candidate → analytics)
-candidate ||--|| candidate_resume_summary                   : "summary"
-candidate ||--o{ candidate_intelligence_insight             : "candidate_id"
+' Row 6 → Row 8
+candidate ||--|| candidate_resume_summary       : "summary"
+candidate ||--o{ candidate_intelligence_insight : "candidate_id"
 
-' Row 6 → Row 8  (candidate → score)
-candidate ||--|| candidate_score                            : "score"
-candidate_score ||--o{ candidate_score_category_wise        : "category scores"
+' Row 6 → Row 8 (score)
+candidate       ||--|| candidate_score               : "score"
+candidate_score ||--o{ candidate_score_category_wise : "category scores"
 
-' Row 6 → Row 9  (candidate → history)
-candidate   ||--o{ candidate_experience : "experience"
-candidate   ||--o{ candidate_education  : "education"
+' Row 6 → Row 9
+candidate ||--o{ candidate_experience : "experience"
+candidate ||--o{ candidate_education  : "education"
 
 ' Row 1/2 → Row 9
-company     ||--o{ candidate_experience : "company_id"
-designation ||--o{ candidate_experience : "designation_id"
-industry    ||--o{ candidate_experience : "industry_id"
-job_title   ||--o{ candidate_experience : "title"
-institution ||--o{ candidate_education  : "institution_id"
-degree      ||--o{ candidate_education  : "degree_id"
-specialization ||--o{ candidate_education : "specialization_id"
+company        ||--o{ candidate_experience : "company_id"
+designation    ||--o{ candidate_experience : "designation_id"
+industry       ||--o{ candidate_experience : "industry_id"
+job_title      ||--o{ candidate_experience : "title"
+institution    ||--o{ candidate_education  : "institution_id"
+degree         ||--o{ candidate_education  : "degree_id"
+specialization ||--o{ candidate_education  : "specialization_id"
 
-' Row 2/5/6 → Row 10  (candidate → misc)
+' Row 2/5/6 → Row 10
 candidate               ||--o{ candidate_skill        : "skills"
 skill                   ||--o{ candidate_skill        : "skill_id"
 skill_validation_status ||--o{ candidate_skill        : "validation"
 candidate               ||--o{ candidate_document     : "documents"
 candidate               ||--o{ candidate_social_media : "social links"
 
-' Row 4/5/6 → Row 11  (candidate + job → candidate_job)
+' Row 4/5/6 → Row 11
 candidate            ||--o{ candidate_job : "application"
 job_description      ||--o{ candidate_job : "job"
 candidate_job_status ||--o{ candidate_job : "status"
 
-' Row 5/11 → Row 12  (candidate_job → evaluation & interview)
+' Row 5/11 → Row 12
 candidate_job                   ||--|| candidate_job_evaluation : "evaluation"
 candidate_job_evaluation_status ||--o{ candidate_job_evaluation : "status"
 

@@ -1,16 +1,18 @@
 package com.tvarah.model.enums;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-
-@Getter
-@RequiredArgsConstructor
 public enum UserStatus {
+    DRAFT("Draft"),
     PENDING("Pending"),
     ACTIVE("Active"),
     INACTIVE("Inactive");
 
     private final String dbValue;
+
+    UserStatus(String dbValue) {
+        this.dbValue = dbValue;
+    }
+
+    public String getDbValue() { return dbValue; }
 
     public static UserStatus fromDbValue(String value) {
         for (UserStatus s : values()) {

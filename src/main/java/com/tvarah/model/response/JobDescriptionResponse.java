@@ -36,4 +36,8 @@ public class JobDescriptionResponse {
     private Instant updatedOn;
     private String createdBy;
     private String updatedBy;
+    private UUID assignedToUserId;
+    private String assignedToUserName;
+    private String locationCity;
+    private String department;
 }

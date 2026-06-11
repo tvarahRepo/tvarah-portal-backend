@@ -25,4 +25,12 @@ public class AddUserRequest {
 
     @NotBlank(message = "Role is required")
     private String role;
+
+    public void setFirstName(String firstName) { this.firstName = firstName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
+    public void setEmail(String email) { this.email = email; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    public void setLocation(String location) { this.location = location; }
+    public void setDepartment(String department) { this.department = department; }
+    public void setRole(String role) { this.role = role; }
 }

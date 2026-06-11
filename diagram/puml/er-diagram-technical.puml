@@ -35,7 +35,7 @@ legend right
   |||
   | <#D6EAF8> | Core Business         |
   | <#D5F5E3> | Reference / Lookup    |
-  | <#FEF9E7> | Status                |
+  | <#FEF9E7> | Status / Role         |
   | <#FDEBD0> | Company               |
   | <#F4ECF7> | Candidate             |
   | <#FDEDEC> | Candidate Analytics   |
@@ -107,25 +107,27 @@ together {
 
 together {
     entity "company" as company #FDEBD0 {
-        * id                  : UUID         <<PK>>
+        * id                       : UUID         <<PK>>
         --
-        * name                : VARCHAR(200) <<UNIQUE, INDEX>>
-        name_alias            : VARCHAR(200) <<INDEX, NULL>>
-        type                  : VARCHAR(100) <<INDEX, NULL>>
-        industry              : VARCHAR(150) <<FK, INDEX, NULL>>
-        headquarter_city      : VARCHAR(100) <<NULL>>
-        headquarter_state     : VARCHAR(100) <<NULL>>
-        headquarter_country   : VARCHAR(100) <<NULL>>
-        founded_year          : INT          <<NULL>>
-        no_of_employees       : INT          <<NULL>>
-        * review_count        : INT          DEFAULT 0
-        avg_rating            : DECIMAL(3,1) CHECK 0-5
+        * name                     : VARCHAR(200) <<UNIQUE, INDEX>>
+        name_alias                 : VARCHAR(200) <<INDEX, NULL>>
+        type                       : VARCHAR(100) <<INDEX, NULL>>
+        industry                   : VARCHAR(150) <<FK, INDEX, NULL>>
+        headquarter_city           : VARCHAR(100) <<NULL>>
+        headquarter_state          : VARCHAR(100) <<NULL>>
+        headquarter_country        : VARCHAR(100) <<NULL>>
+        founded_year               : INT          <<NULL>>
+        no_of_employees            : INT          <<NULL>>
+        * review_count             : INT          DEFAULT 0
+        avg_rating                 : DECIMAL(3,1) CHECK 0-5
         * mca_verified             : BOOLEAN      DEFAULT FALSE
         status                     : VARCHAR(100) <<FK, INDEX, NULL>>
         sector                     : VARCHAR(100) <<NULL>>
         company_domain             : VARCHAR(200) <<NULL>>
         candidate_personal_domain  : VARCHAR(200) <<NULL>>
         domain_source              : VARCHAR(100) <<NULL>>
+        logo                       : BYTEA        <<NULL>>
+        logo_content_type          : VARCHAR(100) <<NULL>>
     }
 
     entity "job_title" as job_title #D5F5E3 {
@@ -168,13 +170,23 @@ together {
 }
 
 ' ─────────────────────────────────────────────────────────────
-' ROW 3 — Status tables for Core Business
+' ROW 3 — Status / Role Reference tables
 ' ─────────────────────────────────────────────────────────────
 
 together {
     entity "user_status" as user_status #FEF9E7 {
         * name        : VARCHAR(100) <<PK>>
         --
+        description   : TEXT         <<NULL>>
+        ..
+        ' Draft | Pending | Active
+        ' Inactive | Suspended
+    }
+
+    entity "user_role" as user_role #FEF9E7 {
+        * name        : VARCHAR(50)  <<PK>>
+        --
+        * type        : VARCHAR(20)  CHECK INTERNAL|EXTERNAL
         description   : TEXT         <<NULL>>
     }
 
@@ -197,15 +209,23 @@ together {
 
 together {
     entity "user" as user #D6EAF8 {
-        * id               : UUID          <<PK>>
+        * id                  : UUID          <<PK>>
         --
-        first_name         : VARCHAR(150)  <<NULL>>
-        last_name          : VARCHAR(150)  <<NULL>>
-        * email            : VARCHAR(255)  <<UNIQUE, INDEX>>
-        * role             : VARCHAR(50)   <<INDEX>>
-        status             : VARCHAR(100)  <<FK, INDEX>>
-        * created_on       : TIMESTAMPTZ   DEFAULT now()
-        * updated_on       : TIMESTAMPTZ   DEFAULT now()
+        keycloak_user_id      : VARCHAR(36)   <<UNIQUE, INDEX, NULL>>
+        * email               : VARCHAR(255)  <<UNIQUE, INDEX>>
+        first_name            : VARCHAR(150)  <<NULL>>
+        last_name             : VARCHAR(150)  <<NULL>>
+        phone_number          : VARCHAR(20)   <<NULL>>
+        department            : VARCHAR(100)  <<NULL>>
+        location              : VARCHAR(255)  <<NULL>>
+        * role                : VARCHAR(50)   <<INDEX>>
+        status                : VARCHAR(100)  <<FK, INDEX, NULL>>
+        avatar                : BYTEA         <<NULL>>
+        avatar_content_type   : VARCHAR(100)  <<NULL>>
+        * created_on          : TIMESTAMPTZ   DEFAULT now()
+        * updated_on          : TIMESTAMPTZ   DEFAULT now()
+        ..
+        ' keycloak_user_id is NULL for Draft users
     }
 
     entity "user_target" as user_target #D6EAF8 {
@@ -263,13 +283,24 @@ together {
     }
 
     entity "job_description_summary" as job_description_summary #D6EAF8 {
-        * id                  : UUID          <<PK>>
+        * id                        : UUID          <<PK>>
         --
-        * job_description_id  : UUID          <<FK, UNIQUE, INDEX>>
-        parsed_jd             : JSONB         <<NULL>>
-        enriched_jd           : JSONB         <<NULL>>
-        jd_score              : DECIMAL(12,2) <<NULL>>
-        non_negotiable_rules  : JSONB         <<NULL>>
+        * job_description_id        : UUID          <<FK, UNIQUE, INDEX>>
+        parsed_jd                   : JSONB         <<NULL>>
+        enriched_jd                 : JSONB         <<NULL>>
+        jd_score                    : DECIMAL(12,2) <<NULL>>
+        non_negotiable_rules        : JSONB         <<NULL>>
+        ..
+        scorecard_role_clarity      : SMALLINT      <<NULL>>
+        scorecard_tech_specificity  : SMALLINT      <<NULL>>
+        consulting_vs_product       : VARCHAR(20)   <<NULL>>
+        experience_inflation        : VARCHAR(10)   <<NULL>>
+        missing_screening           : TEXT[]        <<NULL>>
+        compensation_signal         : VARCHAR(100)  <<NULL>>
+        ..
+        ml_verdict                  : VARCHAR(10)   <<NULL>>
+        judge_results               : JSONB         <<NULL>>
+        ml_reflection_loop          : SMALLINT      <<NULL>>
     }
 }
 
@@ -363,11 +394,9 @@ together {
         expected_ctc_max            : DECIMAL(12,2) <<NULL>>
         * ctc_currency              : VARCHAR(5)    DEFAULT 'INR'
         work_mode_preference        : VARCHAR(50)   <<INDEX, NULL>>
-        work_authorization          : BOOLEAN       DEFAULT FALSE
+        * work_authorization        : BOOLEAN       DEFAULT FALSE
         * created_on                : TIMESTAMPTZ   DEFAULT now()
         * updated_on                : TIMESTAMPTZ   DEFAULT now()
-        created_by                  : VARCHAR(200)  <<NULL>>
-        updated_by                  : VARCHAR(200)  <<NULL>>
     }
 
     entity "candidate_notice_period" as candidate_notice_period #F4ECF7 {
@@ -382,8 +411,6 @@ together {
         last_working_date        : TIMESTAMPTZ   <<INDEX, NULL>>
         * created_on             : TIMESTAMPTZ   DEFAULT now()
         * updated_on             : TIMESTAMPTZ   DEFAULT now()
-        created_by               : VARCHAR(200)  <<NULL>>
-        updated_by               : VARCHAR(200)  <<NULL>>
     }
 }
 
@@ -404,7 +431,6 @@ together {
         drop_flag_message     : TEXT          <<NULL>>
         fraud_risk            : VARCHAR(50)   <<INDEX, NULL>>
         * fraud_status        : BOOLEAN       DEFAULT FALSE <<INDEX>>
-
         * created_on          : TIMESTAMPTZ   DEFAULT now()
         * updated_on          : TIMESTAMPTZ   DEFAULT now() <<INDEX>>
     }
@@ -640,15 +666,17 @@ department ||--o{ skill       : "department"
 
 ' Row 3 → Row 4
 user_status    ||--o{ user            : "status"
+user_role      ||--o{ user            : "role (informational)"
+user_role      ||--o{ company_user    : "role (informational)"
 user           ||--o{ user_target     : "user_id"
 job_status     ||--o{ job_description : "status"
 company_status ||--o{ company         : "status"
 
 ' Row 2/4 → Row 4
-company   ||--o{ company_user    : "company_id"
-user      ||--o{ company_user    : "user_id"
-company   ||--o{ job_description         : "company_id"
-job_title ||--o{ job_description         : "job_title_id"
+company         ||--o{ company_user           : "company_id"
+user            ||--o{ company_user           : "user_id"
+company         ||--o{ job_description        : "company_id"
+job_title       ||--o{ job_description        : "job_title_id"
 job_description ||--|| job_description_summary : "job_description_id"
 
 ' Row 5 → Row 6
@@ -671,9 +699,9 @@ company   ||--o{ candidate_notice_period : "company_id"
 candidate ||--|| candidate_resume_summary                 : "candidate_id"
 candidate ||--o{ candidate_intelligence_insight           : "candidate_id"
 
-' Row 6 → Row 8
-candidate ||--|| candidate_score                          : "candidate_id"
-candidate_score ||--o{ candidate_score_category_wise      : "candidate_score_id"
+' Row 6 → Row 8 (score)
+candidate       ||--|| candidate_score               : "candidate_id"
+candidate_score ||--o{ candidate_score_category_wise : "candidate_score_id"
 
 ' Row 6 → Row 9
 candidate ||--o{ candidate_experience : "candidate_id"

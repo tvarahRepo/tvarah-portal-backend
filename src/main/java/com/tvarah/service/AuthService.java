@@ -2,6 +2,8 @@ package com.tvarah.service;
 
 import com.tvarah.model.response.AuthResponse;
 
+import java.util.UUID;
+
 public interface AuthService {
 
     void login(String email, String password);
@@ -21,4 +23,6 @@ public interface AuthService {
     AuthResponse refresh(String refreshToken);
 
     void changePassword(String email, String currentPassword, String newPassword);
+
+    void inviteUser(UUID userId);
 }

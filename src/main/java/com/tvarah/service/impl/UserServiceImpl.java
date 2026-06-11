@@ -4,12 +4,15 @@ import com.tvarah.exception.BadRequestException;
 import com.tvarah.exception.ResourceNotFoundException;
 import com.tvarah.model.entity.User;
 import com.tvarah.model.enums.UserStatus;
+import com.tvarah.model.request.AddUserRequest;
 import com.tvarah.model.request.RoleRequest;
 import com.tvarah.model.request.UpdateUserRequest;
 import com.tvarah.model.response.RoleResponse;
 import com.tvarah.model.response.UserResponse;
 import com.tvarah.repository.UserRepository;
 import com.tvarah.service.UserService;
+
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
@@ -91,8 +94,45 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
+                .filter(u -> u.getStatus() != UserStatus.DRAFT)
                 .map(this::toUserResponse)
                 .toList();
+    }
+
+    @Override
+    public UserResponse createDraftUser(AddUserRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BadRequestException("User with email " + request.getEmail() + " already exists");
+        }
+        User user = User.builder()
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .email(request.getEmail())
+                .phoneNumber(request.getPhoneNumber())
+                .location(request.getLocation())
+                .department(request.getDepartment())
+                .role(request.getRole())
+                .status(UserStatus.DRAFT)
+                .build();
+        user = userRepository.save(user);
+        log.info("Created draft user: {}", request.getEmail());
+        return toUserResponse(user);
+    }
+
+    @Override
+    public com.tvarah.model.entity.User getUserEntityById(UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+    }
+
+    @Override
+    public void promoteFromDraft(UUID userId, String keycloakId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        user.setKeycloakUserId(keycloakId);
+        user.setStatus(UserStatus.PENDING);
+        userRepository.save(user);
+        log.info("Promoted draft user to Pending: {}", user.getEmail());
     }
 
     @Override
@@ -164,7 +204,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void updateUserStatus(String keycloakUserId, boolean enabled) {
-        // Update Keycloak
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + keycloakUserId));
+
+        if (user.getStatus() == UserStatus.DRAFT) {
+            throw new BadRequestException("Cannot change status of a draft user — invite them first");
+        }
+
         try {
             org.keycloak.representations.idm.UserRepresentation kcUser = new org.keycloak.representations.idm.UserRepresentation();
             kcUser.setEnabled(enabled);
@@ -174,9 +220,6 @@ public class UserServiceImpl implements UserService {
             throw new BadRequestException("Failed to update user status");
         }
 
-        // Update DB
-        User user = userRepository.findByKeycloakUserId(keycloakUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + keycloakUserId));
         user.setStatus(enabled ? UserStatus.ACTIVE : UserStatus.INACTIVE);
         userRepository.save(user);
         log.info("User '{}' status set to {}", keycloakUserId, user.getStatus());
@@ -184,20 +227,22 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void deleteUser(String keycloakUserId) {
-        // Delete from Keycloak
-        try {
-            keycloakAdmin.realm(realm).users().get(keycloakUserId).remove();
-            log.info("Deleted Keycloak user: {}", keycloakUserId);
-        } catch (Exception e) {
-            log.error("Failed to delete Keycloak user '{}': {}", keycloakUserId, e.getMessage());
-            throw new ResourceNotFoundException("User not found: " + keycloakUserId);
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + keycloakUserId));
+
+        // Draft users have no Keycloak account — delete DB record only
+        if (user.getStatus() != UserStatus.DRAFT) {
+            try {
+                keycloakAdmin.realm(realm).users().get(keycloakUserId).remove();
+                log.info("Deleted Keycloak user: {}", keycloakUserId);
+            } catch (Exception e) {
+                log.error("Failed to delete Keycloak user '{}': {}", keycloakUserId, e.getMessage());
+                throw new ResourceNotFoundException("User not found: " + keycloakUserId);
+            }
         }
 
-        // Delete from DB
-        userRepository.findByKeycloakUserId(keycloakUserId).ifPresent(u -> {
-            userRepository.delete(u);
-            log.info("Deleted user from DB: {}", keycloakUserId);
-        });
+        userRepository.delete(user);
+        log.info("Deleted user from DB: {}", keycloakUserId);
     }
 
     @Override
@@ -240,11 +285,11 @@ public class UserServiceImpl implements UserService {
         if (request.getRole() != null && !request.getRole().equals(user.getRole())) {
             String oldRole = user.getRole();
             if (oldRole != null) {
-                try { removeRole(keycloakUserId, oldRole); } catch (Exception e) {
+                try { removeRole(keycloakUserId, toKeycloakRoleName(oldRole)); } catch (Exception e) {
                     log.warn("Could not remove old role '{}' from user '{}': {}", oldRole, keycloakUserId, e.getMessage());
                 }
             }
-            assignRole(keycloakUserId, request.getRole());
+            assignRole(keycloakUserId, toKeycloakRoleName(request.getRole()));
             user.setRole(request.getRole());
         }
 
@@ -294,6 +339,15 @@ public class UserServiceImpl implements UserService {
         } catch (Exception e) {
             throw new ResourceNotFoundException("Role not found: " + roleName);
         }
+    }
+
+    // Maps UI display role names to Keycloak role names
+    private String toKeycloakRoleName(String displayRole) {
+        if (displayRole == null) return null;
+        return switch (displayRole) {
+            case "Site Admin" -> "SITE_ADMIN";
+            default -> displayRole;
+        };
     }
 
     private RoleResponse toRoleResponse(RoleRepresentation r) {

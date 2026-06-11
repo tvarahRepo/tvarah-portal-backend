@@ -102,5 +102,9 @@
     <include file="db/changelog/changes/037-user-keycloak-id.sql"/>
     <include file="db/changelog/changes/038-user-add-fields.sql"/>
     <include file="db/changelog/changes/039-user-avatar.sql"/>
+    <include file="db/changelog/changes/040-company-logo.sql"/>
+    <include file="db/changelog/changes/041-user-role.sql"/>
+    <include file="db/changelog/changes/042-user-draft.sql"/>
+    <include file="db/changelog/changes/043-jd-assigned-to.sql"/>
 
 </databaseChangeLog>

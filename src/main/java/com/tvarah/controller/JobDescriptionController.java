@@ -33,9 +33,11 @@ public class JobDescriptionController {
             @RequestPart("file") MultipartFile file,
             @RequestParam UUID companyId,
             @RequestParam(required = false) Integer totalPositions,
-            @RequestParam(required = false) Integer totalRounds) {
+            @RequestParam(required = false) Integer totalRounds,
+            @RequestParam(required = false) UUID assignedToUserId,
+            @RequestParam(required = false) String status) {
 
-        JobDescriptionResponse response = jobDescriptionService.create(file, companyId, totalPositions, totalRounds);
+        JobDescriptionResponse response = jobDescriptionService.create(file, companyId, totalPositions, totalRounds, assignedToUserId, status);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Job description created successfully", response));
     }

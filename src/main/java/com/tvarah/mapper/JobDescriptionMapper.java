@@ -44,6 +44,8 @@ public class JobDescriptionMapper {
                 .updatedOn(entity.getUpdatedOn())
                 .createdBy(entity.getCreatedBy())
                 .updatedBy(entity.getUpdatedBy())
+                .locationCity(entity.getLocationCity())
+                .department(entity.getDepartment())
                 .build();
     }
 

@@ -18,7 +18,7 @@ public interface JobDescriptionService {
 
     void cancelJobDescription(UUID id);
 
-    JobDescriptionResponse create(MultipartFile file, UUID companyId, Integer totalPositions, Integer totalRounds);
+    JobDescriptionResponse create(MultipartFile file, UUID companyId, Integer totalPositions, Integer totalRounds, UUID assignedToUserId, String status);
 
     void enrich(UUID id, JdEnrichRequest request);
 

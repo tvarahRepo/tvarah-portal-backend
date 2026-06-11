@@ -70,4 +70,10 @@ public class Company {
 
     @Column(name = "domain_source", length = 100)
     private String domainSource;
+
+    @Column(name = "logo")
+    private byte[] logo;
+
+    @Column(name = "logo_content_type", length = 100)
+    private String logoContentType;
 }

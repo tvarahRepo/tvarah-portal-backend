@@ -28,4 +28,12 @@ public class CompanyResponse {
     private String companyDomain;
     private String candidatePersonalDomain;
     private String domainSource;
+    private String logoUrl;
+
+    // ── Contact person (Draft user linked to this company) ────────────────────
+    private String contactFirstName;
+    private String contactLastName;
+    private String contactEmail;
+    private String contactPhone;
+    private String contactRole;
 }

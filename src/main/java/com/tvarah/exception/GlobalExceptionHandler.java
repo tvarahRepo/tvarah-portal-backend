@@ -3,6 +3,7 @@ package com.tvarah.exception;
 import com.tvarah.model.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -51,6 +52,23 @@ public class GlobalExceptionHandler {
         log.warn("Unauthorized: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(
+            DataIntegrityViolationException ex, WebRequest request) {
+        String msg = ex.getMostSpecificCause().getMessage();
+        String friendly = "Invalid value for a referenced field";
+        if (msg != null && msg.contains("fk_company_industry")) {
+            friendly = "Invalid industry value — must match one of the platform's defined industries";
+        } else if (msg != null && msg.contains("fk_company_status")) {
+            friendly = "Invalid company status value";
+        } else if (msg != null && msg.contains("already exists") || (msg != null && msg.contains("unique") || (msg != null && msg.contains("duplicate")))) {
+            friendly = "A record with this value already exists";
+        }
+        log.warn("Data integrity violation: {}", msg);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(friendly));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

@@ -1,5 +1,6 @@
 package com.tvarah.service;
 
+import com.tvarah.model.request.AddUserRequest;
 import com.tvarah.model.request.RoleRequest;
 import com.tvarah.model.request.UpdateUserRequest;
 import com.tvarah.model.response.RoleResponse;
@@ -8,6 +9,7 @@ import com.tvarah.model.request.UpdateProfileRequest;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface UserService {
 
@@ -18,6 +20,12 @@ public interface UserService {
     void deleteRole(String roleName);
 
     List<UserResponse> getAllUsers();
+
+    UserResponse createDraftUser(AddUserRequest request);
+
+    com.tvarah.model.entity.User getUserEntityById(UUID userId);
+
+    void promoteFromDraft(UUID userId, String keycloakId);
 
     UserResponse getMe(String keycloakUserId);
 

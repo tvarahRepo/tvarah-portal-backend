@@ -47,6 +47,7 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     private final CandidateJobInterviewRepository candidateJobInterviewRepository;
     private final CandidateScoreRepository candidateScoreRepository;
     private final DesignationRepository designationRepository;
+    private final com.tvarah.repository.UserRepository userRepository;
     private final MlJdParseClient mlJdParseClient;
     private final ObjectMapper objectMapper;
 
@@ -55,7 +56,8 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
     @Override
     @Transactional
     public JobDescriptionResponse create(MultipartFile file, UUID companyId,
-                                         Integer totalPositions, Integer totalRounds) {
+                                         Integer totalPositions, Integer totalRounds,
+                                         UUID assignedToUserId, String status) {
         if (companyId == null) {
             throw new BadRequestException("companyId is required");
         }
@@ -115,7 +117,8 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
         jd.setTotalPositions(totalPositions != null ? totalPositions : 2);
         jd.setTotalPositionsSelected(0);
         jd.setTotalRounds(totalRounds != null ? totalRounds : 2);
-        jd.setStatus("Draft");
+        jd.setStatus(status != null && !status.isBlank() ? status : "Draft");
+        jd.setAssignedToUserId(assignedToUserId);
         jd.setCreatedOn(now);
         jd.setUpdatedOn(now);
         jd.setCreatedBy(currentUser);
@@ -465,6 +468,10 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
                 .map(c -> c.getName()).orElse(null);
         String jobTitleName = jobTitleRepository.findById(jd.getJobTitleId())
                 .map(t -> t.getName()).orElse(null);
+        String assignedToUserName = jd.getAssignedToUserId() != null
+                ? userRepository.findById(jd.getAssignedToUserId())
+                    .map(u -> u.getFirstName() + " " + u.getLastName()).orElse(null)
+                : null;
 
         List<UUID> allSkillIds = Stream.of(
                 safeList(jd.getRequiredSkills()),
@@ -501,6 +508,10 @@ public class JobDescriptionServiceImpl implements JobDescriptionService {
                 .updatedOn(jd.getUpdatedOn())
                 .createdBy(jd.getCreatedBy())
                 .updatedBy(jd.getUpdatedBy())
+                .assignedToUserId(jd.getAssignedToUserId())
+                .assignedToUserName(assignedToUserName)
+                .locationCity(jd.getLocationCity())
+                .department(jd.getDepartment())
                 .build();
     }
 

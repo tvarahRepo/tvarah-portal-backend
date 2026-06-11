@@ -95,6 +95,9 @@ public class JobDescription {
     @Column(name = "updated_by", length = 200)
     private String updatedBy;
 
+    @Column(name = "assigned_to_user_id")
+    private UUID assignedToUserId;
+
     // ── Section A: Location ────────────────────────────────────────────────────
 
     @Column(name = "location_city", length = 100)
